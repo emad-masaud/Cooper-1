@@ -1,0 +1,89 @@
+---
+import { type CollectionEntry, getCollection } from 'astro:content';
+import Layout from '~/layouts/Layout.astro';
+import { ArrowLeft, Calendar, ExternalLink } from 'lucide-react';
+import { defaultLang } from '~/i18n/ui';
+import { isRtl, useTranslations } from '~/i18n/utils';
+import { getRelativeLocaleUrl } from 'astro:i18n';
+
+export async function getStaticPaths() {
+	const posts = await getCollection('portfolio');
+	return posts.map((post) => {
+        const lang = post.slug.split('/')[0];
+        return {
+		    params: { lang, slug: post.slug.split('/').slice(1).join('/') },
+		    props: { post },
+	    };
+    });
+}
+interface Props {
+  post: CollectionEntry<'portfolio'>;
+}
+
+const { post } = Astro.props;
+const { lang = defaultLang } = Astro.params;
+const t = useTranslations(lang);
+
+const { Content } = await post.render();
+
+---
+
+<Layout 
+  title={post.data.title} 
+  description={post.data.description}
+  image={post.data.heroImage}
+  noindex={post.data.noindex}
+  nofollow={post.data.nofollow}
+>
+	<article class="pt-32 pb-16">
+        <div class="max-w-4xl mx-auto px-6">
+            <div class="mb-8">
+                 <a 
+                    href={getRelativeLocaleUrl(lang, 'portfolio')}
+                    class="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80 transition-colors group"
+                  >
+                    <ArrowLeft className={`w-4 h-4 ${isRtl(lang) ? 'ml-2 rotate-180' : 'mr-2'} group-hover:-translate-x-1 transition-transform`} />
+                    {t['portfolio.back']}
+                </a>
+                
+                <div class="flex flex-wrap gap-2 mb-6">
+                    {post.data.tags.map(tag => (
+                        <span class="text-xs font-medium px-3 py-1 rounded-full bg-foreground/5 text-foreground border border-foreground/10">
+                            {tag}
+                        </span>
+                    ))}
+                </div>
+
+                <h1 class="text-4xl md:text-6xl font-display font-bold mb-6">{post.data.title}</h1>
+                <p class="text-xl text-muted-foreground mb-8 dark:text-neutral-300">{post.data.description}</p>
+                
+                <div class="flex items-center gap-6 text-sm text-muted-foreground border-y border-black/10 dark:border-white/10 py-6 mb-12">
+                    <div class="flex items-center gap-2 text-muted-foreground">
+                        <Calendar className="w-4 h-4" />
+                        <time datetime={post.data.pubDate.toISOString()} class="text-sm">
+                            {post.data.pubDate.toLocaleDateString(lang, {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                            })}
+                        </time>
+                    </div>
+                    {post.data.link && (
+                         <a href={post.data.link} target="_blank" class="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors">
+                            <ExternalLink className="w-4 h-4" />
+                            {(t as any)['portfolio.visitLiveSite']}
+                        </a>
+                    )}
+                </div>
+            </div>
+            
+            <div class="rounded-3xl overflow-hidden border border-black/10 dark:border-white/10 mb-16 shadow-2xl bg-black/5 dark:bg-white/5">
+                 <img width={1020} height={510} src={post.data.heroImage} alt="" class="w-full h-auto" />
+            </div>
+
+            <div class="prose dark:prose-invert prose-lg max-w-none prose-headings:font-display prose-headings:font-bold prose-headings:text-foreground prose-a:text-primary hover:prose-a:text-primary/80 prose-img:rounded-xl">
+ 			    <Content />
+            </div>
+        </div>
+	</article>
+</Layout>

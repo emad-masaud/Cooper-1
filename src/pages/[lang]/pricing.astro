@@ -1,0 +1,110 @@
+---
+import Layout from '~/layouts/Layout.astro';
+import PageHeader from '~/components/layout/PageHeader.astro';
+import Schema from '~/components/layout/Schema.astro';
+import PricingTable from '~/components/sections/PricingTable.astro';
+import PricingPlan from '~/components/sections/PricingPlan.astro';
+import FAQ from '~/components/sections/FAQ.astro';
+import ComparisonTable from '~/components/sections/ComparisonTable.astro';
+import { CheckCircle2 } from 'lucide-react';
+import { ui, languages, defaultLang } from '~/i18n/ui';
+import { useTranslations } from '~/i18n/utils';
+import Container from '~/components/ui/Container.astro';
+
+export async function getStaticPaths() {
+  return Object.keys(languages).map((lang) => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params;
+const t = useTranslations(lang);
+
+const faqs = [
+  {
+    question: t['faq.pricing.1.q'],
+    answer: t['faq.pricing.1.a']
+  },
+  {
+    question: t['faq.pricing.2.q'],
+    answer: t['faq.pricing.2.a']
+  },
+  {
+    question: t['faq.pricing.3.q'],
+    answer: t['faq.pricing.3.a']
+  },
+  {
+    question: t['faq.pricing.4.q'],
+    answer: t['faq.pricing.4.a']
+  }
+];
+
+---
+
+<Layout title="Pricing - Astro Boilerplate" description="Simple, transparent pricing for everyone.">
+  
+  <PageHeader 
+      title={t['pricing.title']}
+      description={t['pricing.subtitle']}
+  />
+
+  <Container as="section" class="pb-24">
+      <PricingTable>
+        <PricingPlan
+          name={t['pricing.starter.name']}
+          price="$0"
+          description={t['pricing.starter.desc']}
+          features={[t['pricing.feat.projects.limited'], t['pricing.feat.support.community'], t['pricing.feat.analytics.basic'], t['pricing.feat.response.48h']]}
+          cta={t['pricing.cta.start']}
+        />
+        <PricingPlan
+          name={t['pricing.pro.name']}
+          price="$29"
+          description={t['pricing.pro.desc']}
+          features={[t['pricing.feat.projects.unlimited'], t['pricing.feat.support.priority'], t['pricing.feat.analytics.advanced'], t['pricing.feat.response.24h'], t['pricing.feat.domain.custom']]}
+          cta={t['pricing.cta.start']}
+          popular={true}
+        />
+        <PricingPlan
+          name={t['pricing.enterprise.name']}
+          price="$99"
+          description={t['pricing.enterprise.desc']}
+          features={[t['pricing.feat.projects.unlimited'], t['pricing.feat.support.dedicated'], t['pricing.feat.integrations.custom'], t['pricing.feat.sla'], t['pricing.feat.sso']]}
+          cta={t['pricing.cta.contact']}
+        />
+      </PricingTable>
+
+      <div class="mt-24">
+        <ComparisonTable 
+          title={t['compare.title']}
+          subtitle={t['compare.subtitle']}
+          labels={{ features: t['compare.labels.features'], popular: t['compare.labels.popular'] }}
+          plans={[
+             { name: t['pricing.starter.name'], key: 'starter' },
+             { name: t['pricing.pro.name'], key: 'pro', popular: true },
+             { name: t['pricing.enterprise.name'], key: 'enterprise' }
+          ]}
+          features={[
+            { category: t['compare.cat.core'], items: [
+                { name: t['compare.row.projects'], starter: t['compare.val.3'], pro: t['compare.val.unlimited'], enterprise: t['compare.val.unlimited'] },
+                { name: t['compare.row.users'], starter: t['compare.val.1'], pro: t['compare.val.5'], enterprise: t['compare.val.unlimited'] },
+                { name: t['compare.row.storage'], starter: t['compare.val.1gb'], pro: t['compare.val.10gb'], enterprise: t['compare.val.unlimited'] },
+            ]},
+            { category: t['compare.cat.analytics'], items: [
+                { name: t['compare.row.basic_analytics'], starter: true, pro: true, enterprise: true },
+                { name: t['compare.row.advanced_reports'], starter: false, pro: true, enterprise: true },
+                { name: t['compare.row.custom_dashboards'], starter: false, pro: true, enterprise: true },
+                { name: t['compare.row.audit_logs'], starter: false, pro: false, enterprise: true },
+            ]},
+            { category: t['compare.cat.support'], items: [
+                { name: t['compare.row.email_support'], starter: t['compare.val.standard'], pro: t['compare.val.priority'], enterprise: t['compare.val.dedicated'] },
+                { name: t['compare.row.sso'], starter: false, pro: false, enterprise: true },
+                { name: t['compare.row.sla'], starter: false, pro: false, enterprise: t['compare.val.99_99'] },
+            ]}
+          ]}
+        />
+      </div>
+      
+      <div class="mt-20">
+          <FAQ items={faqs} />
+      </div>
+  </Container>
+</Layout>

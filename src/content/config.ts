@@ -1,0 +1,67 @@
+import { defineCollection, z } from 'astro:content';
+
+const blogCollection = defineCollection({
+	type: 'content',
+	// Type-check frontmatter using a schema
+	schema: ({ image }) => z.object({
+		title: z.string(),
+		description: z.string(),
+		pubDate: z.coerce.date(),
+		updatedDate: z.coerce.date().optional(),
+		heroImage: image().optional(),
+        tags: z.array(z.string()).optional(),
+        youtubeId: z.string().optional(),
+        audioUrl: z.string().optional(),
+        isVideo: z.boolean().optional().default(false),
+        noindex: z.boolean().optional().default(false),
+        nofollow: z.boolean().optional().default(false),
+	}),
+});
+
+const portfolioCollection = defineCollection({
+    type: 'content',
+    schema: z.object({
+        title: z.string(),
+        description: z.string(),
+        pubDate: z.coerce.date(),
+        heroImage: z.string(),
+        tags: z.array(z.string()),
+        link: z.string().optional(),
+        noindex: z.boolean().optional().default(false),
+        nofollow: z.boolean().optional().default(false),
+    }),
+});
+
+const docsCollection = defineCollection({
+    type: 'content',
+    schema: z.object({
+        title: z.string(),
+        description: z.string(),
+        order: z.number().optional(),
+        noindex: z.boolean().optional().default(false),
+        nofollow: z.boolean().optional().default(false),
+    }),
+});
+
+const changelogCollection = defineCollection({
+    type: 'content',
+    schema: z.object({
+        version: z.string(),
+        title: z.string(),
+        description: z.string(),
+        pubDate: z.coerce.date(),
+        type: z.enum(['major', 'feature', 'security', 'fix', 'improvement', 'planned', 'other']).default('feature'),
+        isSecurity: z.boolean().optional().default(false),
+        detailsUrl: z.string().optional(),
+        migrationUrl: z.string().optional(),
+        noindex: z.boolean().optional().default(false),
+        nofollow: z.boolean().optional().default(false),
+    }),
+});
+
+export const collections = {
+	'blog': blogCollection,
+    'portfolio': portfolioCollection,
+    'docs': docsCollection,
+    'changelog': changelogCollection,
+};

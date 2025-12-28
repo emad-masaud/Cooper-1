@@ -1,0 +1,277 @@
+
+---
+import { languages, defaultLang } from '~/i18n/ui';
+import { isRtl, useTranslations } from '~/i18n/utils';
+import { Image } from 'astro:assets';
+import bentoCode from '~/assets/bento-code.jpg';
+import Layout from '~/layouts/Layout.astro';
+import Schema from '~/components/layout/Schema.astro';
+import Hero from '~/components/sections/Hero.astro';
+import Section from '~/components/layout/Section.astro';
+// posts execution moved to LatestPosts component
+import LatestPosts from '~/components/sections/LatestPosts.astro';
+import BentoGrid from '~/components/sections/BentoGrid.astro';
+import BentoItem from '~/components/ui/BentoItem.astro';
+import { Cpu, Globe, Zap, BarChart, ShieldCheck, Settings, FileCode, Search, Moon, Eye } from 'lucide-react';
+import FeaturesList from '~/components/sections/FeaturesList.astro';
+import FeatureItem from '~/components/ui/FeatureItem.astro';
+
+import Testimonials from '~/components/sections/Testimonials.astro';
+import Testimonial from '~/components/ui/Testimonial.astro';
+import Stats from '~/components/sections/Stats.astro';
+import StatItem from '~/components/ui/StatItem.astro';
+import CTA from '~/components/sections/CTA.astro';
+import FAQ from '~/components/sections/FAQ.astro';
+import LogoCloud from '~/components/sections/LogoCloud.astro';
+import TechStack from '~/components/sections/TechStack.astro';
+import OpenSourceNotification from '~/components/common/OpenSourceNotification.astro';
+
+export async function getStaticPaths() {
+  return Object.keys(languages).map((lang) => ({ params: { lang } }));
+}
+
+const { lang = defaultLang } = Astro.params;
+const t = useTranslations(lang);
+
+const logos = [
+  { name: 'Vite', src: 'https://vitejs.dev/logo.svg', description: t['logo.vite.desc'] },
+  { name: 'Cloudflare', src: 'https://upload.wikimedia.org/wikipedia/commons/4/4b/Cloudflare_Logo.svg', description: t['logo.cloudflare.desc'] },
+  { name: 'Astro', src: 'https://astro.build/assets/press/astro-logo-dark.svg', description: t['logo.astro.desc'] },
+  { name: 'React', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/React-icon.svg/1200px-React-icon.svg.png', description: t['logo.react.desc'] },
+  { name: 'Tailwind CSS', src: 'https://upload.wikimedia.org/wikipedia/commons/d/d5/Tailwind_CSS_Logo.svg', description: t['logo.tailwind.desc'] },
+  { name: 'Framer Motion', src: 'https://pagepro.co/blog/wp-content/uploads/2020/03/framer-motion.png', description: t['logo.framer.desc'] },
+];
+
+---
+
+<Layout title="Cooper | Engineered for the Unknown" description="Cooper -The ultimate Astro starter Boilerplate for your next project. Made by Gladtek">
+    <Schema item={{
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "Cooper",
+            "url": Astro.site,
+            "potentialAction": {
+                "@type": "SearchAction",
+                "target": {
+                    "@type": "EntryPoint",
+                    "urlTemplate": `${Astro.site}/search?q={search_term_string}`
+                },
+                "query-input": "required name=search_term_string"
+            }
+        }} />
+    <Schema item={{
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "Cooper",
+            "operatingSystem": "Web",
+            "applicationCategory": "DeveloperApplication",
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+            },
+            "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": "4.9",
+                "ratingCount": "120"
+            }
+        }} />
+	
+    <Hero 
+        title={t['hero.title']}
+        highlight={t['hero.highlight']}
+        description={t['hero.subtitle']}
+        primaryCta={{ text: t['hero.getStarted'], href: `/${lang}/pricing` }}
+        secondaryCta={{ text: t['hero.learnMore'], href: `/${lang}/features` }}
+    />
+    
+    <LogoCloud title={t['logo.title']} logos={logos} />
+    
+
+
+    <Section class="py-0 overflow-visible">
+    <BentoGrid 
+        title={t['bento.title']}
+        description={t['bento.description']}
+    >
+        <!-- Large Item -->
+        <BentoItem class="md:col-span-2 group">
+            <div class="absolute top-0 right-0 w-[300px] h-[300px] bg-linear-to-br from-primary/20 to-purple-500/20 rounded-full blur-[80px] -mr-20 -mt-20"></div>
+            
+            <div class="relative z-10 h-full flex flex-col justify-between">
+                <div>
+                    <div class="w-12 h-12 rounded-xl bg-primary/10 dark:bg-white/10 flex items-center justify-center mb-6">
+                        <Globe className="w-6 h-6 text-primary dark:text-white" />
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">{t['bento.item1.title']}</h3>
+                    <p class="text-muted-foreground">{t['bento.item1.desc']}</p>
+                </div>
+                
+                <div class="w-full h-32 bg-black/20 rounded-xl border border-white/5 backdrop-blur-sm overflow-hidden relative">
+                        <div class="absolute inset-0 flex items-center justify-center text-xs font-mono text-primary/90 font-bold">
+                        running regional_edge_check... <br/>
+                        lat: 12ms | status: active
+                        </div>
+                </div>
+            </div>
+        </BentoItem>
+
+        <!-- Tall Item -->
+        <BentoItem class="md:row-span-2 group">
+                <div class="absolute bottom-0 left-0 w-full h-1/2 bg-linear-to-t from-black/50 to-transparent z-10"></div>
+                <Image src={bentoCode} alt="Code" class="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-700" />
+                
+                <div class="relative z-20 h-full flex flex-col justify-end">
+                <div class="w-12 h-12 rounded-xl bg-primary flex items-center justify-center mb-4">
+                    <Cpu className="w-6 h-6 text-white" />
+                </div>
+                <h3 class="text-2xl font-bold mb-2">{t['bento.item2.title']}</h3>
+                <p class="text-muted-foreground text-sm">{t['bento.item2.desc']}</p>
+                </div>
+        </BentoItem>
+
+        <!-- Small Item 1 -->
+        <BentoItem class="flex flex-col justify-center text-center hover:bg-white/10 transition-colors">
+            <div class="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-4">
+                <Zap className="w-6 h-6" />
+            </div>
+            <h3 class="text-lg font-bold">{t['bento.item3.title']}</h3>
+            <p class="text-sm text-muted-foreground mt-2">{t['bento.item3.desc']}</p>
+        </BentoItem>
+
+        <!-- Small Item 2 -->
+            <BentoItem class="flex flex-col justify-center text-center hover:bg-white/10 transition-colors">
+            <div class="w-12 h-12 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center mx-auto mb-4">
+                <ShieldCheck className="w-6 h-6" />
+            </div>
+            <h3 class="text-lg font-bold">{t['bento.item4.title']}</h3>
+            <p class="text-sm text-muted-foreground mt-2">{t['bento.item4.desc']}</p>
+        </BentoItem>
+        
+        <!-- Wide Item -->
+        <BentoItem class="md:col-span-2 flex items-center justify-between gap-8 group">
+            <div class="relative z-10">
+                    <h3 class="text-2xl font-bold mb-2">{t['bento.item5.title']}</h3>
+                    <p class="text-muted-foreground max-w-sm">{t['bento.item5.desc']}</p>
+            </div>
+            <div class="relative z-10 w-32 h-32 shrink-0 bg-linear-to-tr from-primary to-purple-500 rounded-2xl flex items-center justify-center shadow-lg transform rotate-6 group-hover:rotate-12 transition-transform">
+                <BarChart className="w-16 h-16 text-white" />
+            </div>
+        </BentoItem>
+    </BentoGrid>
+    </Section>
+
+    <Section class="py-24">
+        <div class="text-center max-w-3xl mx-auto mb-16">
+            <h2 class="text-3xl font-bold mb-4">{t['benefits.title']}</h2>
+            <p class="text-muted-foreground">{t['benefits.subtitle']}</p>
+        </div>
+        <FeaturesList>
+            <FeatureItem title={t['benefits.1.title']} description={t['benefits.1.desc']}>
+                <Settings slot="icon" className="w-6 h-6" />
+            </FeatureItem>
+            <FeatureItem title={t['benefits.2.title']} description={t['benefits.2.desc']}>
+                <FileCode slot="icon" className="w-6 h-6" />
+            </FeatureItem>
+            <FeatureItem title={t['benefits.3.title']} description={t['benefits.3.desc']}>
+                <Search slot="icon" className="w-6 h-6" />
+            </FeatureItem>
+            <FeatureItem title={t['benefits.4.title']} description={t['benefits.4.desc']}>
+                <Moon slot="icon" className="w-6 h-6" />
+            </FeatureItem>
+            <FeatureItem title={t['benefits.5.title']} description={t['benefits.5.desc']}>
+                <Eye slot="icon" className="w-6 h-6" />
+            </FeatureItem>
+            <FeatureItem title={t['benefits.6.title']} description={t['benefits.6.desc']}>
+                <Globe slot="icon" className="w-6 h-6" />
+            </FeatureItem>
+        </FeaturesList>
+    </Section>
+
+    <Section id="tech-stack" class="py-24 bg-foreground/2">
+        <div class="text-center max-w-3xl mx-auto mb-16">
+            <h2 class="text-3xl font-bold mb-4 italic">{t['techstack.title']}</h2>
+            <p class="text-muted-foreground">{t['techstack.subtitle']}</p>
+        </div>
+        <div class="max-w-6xl mx-auto px-6">
+            <TechStack t={t} />
+        </div>
+    </Section>
+
+    <Section class="py-0 overflow-visible">
+    <Stats>
+        <StatItem value="10k+" label={t['stats.downloads']} />
+        <StatItem value="99.9%" label={t['stats.uptime']} />
+        <StatItem value="50M+" label={t['stats.requests']} />
+        <StatItem value="24/7" label={t['stats.support']} />
+    </Stats>
+    </Section>
+
+    <Section class="py-0 overflow-visible">
+    <Testimonials>
+      <Testimonial 
+        text={t['testimonials.1.text']}
+        author={t['testimonials.1.author']}
+        role={t['testimonials.1.role']}
+      />
+      <Testimonial 
+        text={t['testimonials.2.text']}
+        author={t['testimonials.2.author']}
+        role={t['testimonials.2.role']}
+      />
+      <Testimonial 
+        text={t['testimonials.3.text']}
+        author={t['testimonials.3.author']}
+        role={t['testimonials.3.role']}
+      />
+      <Testimonial 
+        text={t['testimonials.4.text']}
+        author={t['testimonials.4.author']}
+        role={t['testimonials.4.role']}
+      />
+      <Testimonial 
+        text={t['testimonials.5.text']}
+        author={t['testimonials.5.author']}
+        role={t['testimonials.5.role']}
+      />
+    </Testimonials>
+    </Section>
+
+    <LatestPosts count={6}/>
+
+    <Section class="py-0 overflow-visible">
+    <FAQ items={[
+        {
+          question: t['faq.home.1.q'],
+          answer: t['faq.home.1.a']
+        },
+        {
+          question: t['faq.home.2.q'],
+          answer: t['faq.home.2.a']
+        },
+        {
+          question: t['faq.home.3.q'],
+          answer: t['faq.home.3.a']
+        },
+        {
+          question: t['faq.home.4.q'],
+          answer: t['faq.home.4.a']
+        },
+        {
+          question: t['faq.home.5.q'],
+          answer: t['faq.home.5.a']
+        }
+    ]} />
+    </Section>
+
+    <CTA 
+        title={t['cta.readyToLaunch']}
+        description={t['cta.description']}
+        primaryBtn={{ text: t['cta.primary'], href: `/${lang}/pricing` }}
+        secondaryBtn={{ text: t['cta.secondary'], href: `/${lang}/contact` }}
+        disclaimer={t['cta.disclaimer']}
+    />
+
+    <OpenSourceNotification lang={lang} />
+
+</Layout>
