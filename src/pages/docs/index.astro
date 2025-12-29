@@ -6,7 +6,7 @@ const docs = (await getCollection('docs')).sort((a, b) => (a.data.order || 99) -
 const firstDoc = docs[0];
 
 if (firstDoc) {
-    return Astro.redirect(`/docs/${firstDoc.slug}`);
+    return Astro.redirect(`/docs/${firstDoc.id.replace(/\.[^/.]+$/, "")}`);
 }
 ---
 

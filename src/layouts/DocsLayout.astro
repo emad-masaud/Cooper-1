@@ -21,9 +21,13 @@ const { title, description, noindex, nofollow, headings = [] } = Astro.props;
 
 const docs = (await getCollection('docs')).sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
 
+// Helper to get clean slug from ID
+const getSlug = (id: string) => id.replace(/\.[^/.]+$/, "");
+
 // Group docs by folder
 const groupedDocs = docs.reduce((acc, doc) => {
-  const parts = doc.slug.split('/');
+  const slug = getSlug(doc.id);
+  const parts = slug.split('/');
   const section = parts.length > 1 ? parts[0] : 'root';
   const key = section as string;
   if (!acc[key]) acc[key] = [];
@@ -49,8 +53,8 @@ const currentPath = Astro.url.pathname;
 const normalizedCurrentPath = currentPath.endsWith('/') && currentPath.length > 1 ? currentPath.slice(0, -1) : currentPath;
 
 const currentIndex = flattenedDocs.findIndex(doc => {
-    const docPath = `/docs/${doc.slug}`;
-    return normalizedCurrentPath === docPath || normalizedCurrentPath === `/docs/${doc.slug}`;
+    const docPath = `/docs/${getSlug(doc.id)}`;
+    return normalizedCurrentPath === docPath || normalizedCurrentPath === `/docs/${getSlug(doc.id)}`;
 });
 
 const prevDoc = currentIndex > 0 ? flattenedDocs[currentIndex - 1] : null;
@@ -84,7 +88,7 @@ const SECTION_CUSTOMIZATION: Record<string, { icon: string, color: string, label
                             return (
                                 <ul class="space-y-1 mb-8 list-none p-0">
                                     {sectionDocs.map(doc => {
-                                        const docPath = `/docs/${doc.slug}`;
+                                        const docPath = `/docs/${getSlug(doc.id)}`;
                                         const isExact = normalizedCurrentPath === docPath;
                                         return (
                                             <li>
@@ -111,7 +115,7 @@ const SECTION_CUSTOMIZATION: Record<string, { icon: string, color: string, label
                         const rawTitle = section.charAt(0).toUpperCase() + section.slice(1).replace(/-/g, ' ');
                         const sectionTitle = customization.label || rawTitle;
                         const sectionColor = customization.color || 'text-foreground/70';
-                        const isOpen = sectionDocs.some(doc => normalizedCurrentPath === `/docs/${doc.slug}`);
+                        const isOpen = sectionDocs.some(doc => normalizedCurrentPath === `/docs/${getSlug(doc.id)}`);
                         
                         return (
                             <details class="group/section" open={isOpen}>
@@ -136,7 +140,7 @@ const SECTION_CUSTOMIZATION: Record<string, { icon: string, color: string, label
                                     
                                     <ul class="list-none p-0 m-0 space-y-1">
                                         {sectionDocs.map((doc, idx) => {
-                                            const docPath = `/docs/${doc.slug}`;
+                                            const docPath = `/docs/${getSlug(doc.id)}`;
                                             const isExact = normalizedCurrentPath === docPath;
                                             return (
                                                 <li class="relative">
@@ -194,14 +198,14 @@ const SECTION_CUSTOMIZATION: Record<string, { icon: string, color: string, label
             <hr class="my-10 border-foreground/10" />
             <div class="flex flex-col sm:flex-row gap-4 justify-between">
                 {prevDoc ? (
-                    <a href={`/docs/${prevDoc.slug}`} class="group flex flex-col gap-1 p-4 rounded-xl border border-foreground/10 hover:border-primary/30 hover:bg-primary/5 transition-all text-left">
+                    <a href={`/docs/${getSlug(prevDoc.id)}`} class="group flex flex-col gap-1 p-4 rounded-xl border border-foreground/10 hover:border-primary/30 hover:bg-primary/5 transition-all text-left">
                         <span class="text-xs text-muted-foreground font-medium group-hover:text-primary/70">Previous</span>
                         <span class="text-foreground font-bold group-hover:text-primary">{prevDoc.data.title}</span>
                     </a>
                 ) : <div/>}
 
                  {nextDoc && (
-                    <a href={`/docs/${nextDoc.slug}`} class="group flex flex-col gap-1 p-4 rounded-xl border border-foreground/10 hover:border-primary/30 hover:bg-primary/5 transition-all text-right items-end">
+                    <a href={`/docs/${getSlug(nextDoc.id)}`} class="group flex flex-col gap-1 p-4 rounded-xl border border-foreground/10 hover:border-primary/30 hover:bg-primary/5 transition-all text-right items-end">
                         <span class="text-xs text-muted-foreground font-medium group-hover:text-primary/70">Next</span>
                         <span class="text-foreground font-bold group-hover:text-primary">{nextDoc.data.title}</span>
                     </a>

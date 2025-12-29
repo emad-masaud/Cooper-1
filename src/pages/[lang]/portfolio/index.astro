@@ -12,8 +12,8 @@ export function getStaticPaths() {
 const { lang } = Astro.params;
 const t = useTranslations(lang);
 
-const projects = (await getCollection('portfolio', ({ slug }) => {
-	return slug.startsWith(`${lang}/`);
+const projects = (await getCollection('portfolio', ({ id }) => {
+	return id.startsWith(`${lang}/`);
 })).sort(
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
 );
@@ -31,8 +31,8 @@ const projects = (await getCollection('portfolio', ({ slug }) => {
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 			{
 				projects.map((project) => {
-                    const [_lang, ...rest] = project.slug.split('/');
-                    const slugWithoutLang = rest.join('/');
+                    const [_lang, ...rest] = project.id.split('/');
+                    const slugWithoutLang = rest.join('/').replace(/\.[^/.]+$/, "");
                     return (
                         <ProjectCard 
                             title={project.data.title}

@@ -20,7 +20,7 @@ export async function getStaticPaths({ paginate }: { paginate: GetStaticPathsOpt
   );
 
   return Object.keys(languages).flatMap((lang) => {
-      const filteredPosts = posts.filter((post) => post.slug.startsWith(`${lang}/`));
+      const filteredPosts = posts.filter((post) => post.id.startsWith(`${lang}/`));
       return paginate(filteredPosts, { 
           params: { lang }, 
           pageSize: siteConfig.blog.postsPerPage
@@ -47,7 +47,7 @@ const t = useTranslations(lang);
              description={post.data.description}
              pubDate={post.data.pubDate}
              heroImage={post.data.heroImage}
-             slug={`/${lang}/blog/${post.slug.split('/').slice(1).join('/')}`}
+             slug={`/${lang}/blog/${post.id.split('/').slice(1).join('/').replace(/\.[^/.]+$/, "")}`}
              isVideo={post.data.isVideo}
           />
         ))}

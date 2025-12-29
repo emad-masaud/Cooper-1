@@ -1,5 +1,5 @@
 ---
-import { type CollectionEntry, getCollection } from 'astro:content';
+import { type CollectionEntry, getCollection, render } from 'astro:content';
 import Layout from '~/layouts/Layout.astro';
 import { ArrowLeft, Calendar, ExternalLink } from 'lucide-react';
 import { defaultLang } from '~/i18n/ui';
@@ -9,9 +9,10 @@ import { getRelativeLocaleUrl } from 'astro:i18n';
 export async function getStaticPaths() {
 	const posts = await getCollection('portfolio');
 	return posts.map((post) => {
-        const lang = post.slug.split('/')[0];
+        const lang = post.id.split('/')[0];
+        const slug = post.id.split('/').slice(1).join('/').replace(/\.[^/.]+$/, "");
         return {
-		    params: { lang, slug: post.slug.split('/').slice(1).join('/') },
+		    params: { lang, slug },
 		    props: { post },
 	    };
     });
@@ -24,7 +25,7 @@ const { post } = Astro.props;
 const { lang = defaultLang } = Astro.params;
 const t = useTranslations(lang);
 
-const { Content } = await post.render();
+const { Content } = await render(post);
 
 ---
 

@@ -1,5 +1,5 @@
 ---
-import { type CollectionEntry, getCollection } from 'astro:content';
+import { type CollectionEntry, getCollection, render } from 'astro:content';
 import BlogPost from '~/layouts/BlogPost.astro';
 
 import { languages } from '~/i18n/ui';
@@ -7,9 +7,10 @@ import { languages } from '~/i18n/ui';
 export async function getStaticPaths() {
 	const posts = await getCollection('blog');
 	return posts.map((post) => {
-    const [lang, ...slugParts] = post.slug.split('/');
+    const [lang, ...slugParts] = post.id.split('/');
+    const slug = slugParts.join('/').replace(/\.[^/.]+$/, "");
     return {
-		  params: { lang, slug: slugParts.join('/') },
+		  params: { lang, slug },
 		  props: post,
 	  };
   });
@@ -17,14 +18,14 @@ export async function getStaticPaths() {
 type Props = CollectionEntry<'blog'>;
 
 const post = Astro.props;
-const { Content } = await post.render();
+const { Content } = await render(post);
 
 // Calculate available translations
 const allPosts = await getCollection('blog');
-const currentBaseSlug = post.slug.split('/').slice(1).join('/');
+const currentBaseSlug = post.id.split('/').slice(1).join('/');
 const availableLangs = allPosts
-    .filter(p => p.slug.endsWith(currentBaseSlug))
-    .map(p => p.slug.split('/')[0]);
+    .filter(p => p.id.endsWith(currentBaseSlug))
+    .map(p => p.id.split('/')[0]);
 ---
 
 <BlogPost 
