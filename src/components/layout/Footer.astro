@@ -41,9 +41,10 @@ const t = useTranslations(lang);
         <div>
           <h3 class="font-semibold mb-4 text-foreground">{t[`footer.${key}` as keyof typeof t] || section.title}</h3>
           <ul class="space-y-2 text-sm text-foreground/90">
-            {section.links.map(link => {
+            {section.links.map((link: any) => {
               const isDoc = link.href.startsWith('/docs');
-              const href = isDoc 
+              const shouldLocalize = link.localize !== false;
+              const href = (isDoc || !shouldLocalize)
                 ? link.href 
                 : `/${lang}${link.href.startsWith('/') ? '' : '/'}${link.href}`.replace(/\/$/, '') || `/${lang}`;
               

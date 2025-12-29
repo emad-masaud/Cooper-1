@@ -24,7 +24,8 @@ const translateNavLinks = (links: any[], lang: string, t: any): any[] => {
     const descKey = `${key}.desc`;
     
     const isDoc = link.href.startsWith('/docs');
-    const href = isDoc 
+    const shouldLocalize = link.localize !== false;
+    const href = (isDoc || !shouldLocalize)
       ? link.href 
       : `/${lang}${link.href.startsWith('/') ? '' : '/'}${link.href}`.replace(/\/$/, '') || `/${lang}`;
 
