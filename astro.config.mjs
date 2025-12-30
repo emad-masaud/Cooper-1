@@ -82,13 +82,14 @@ const DEFAULT_LOCALE = "en";
 
 import vercel from "@astrojs/vercel";
 import netlify from "@astrojs/netlify";
+import node from "@astrojs/node";
 import process from "node:process";
 
 // ... other imports
 
 // Adapter selection strategy
 function getAdapter() {
-  const adapter = process.env.ADAPTER || 'cloudflare';
+  const adapter = process.env.ADAPTER || 'node';
   
   switch (adapter) {
     case 'vercel':
@@ -98,7 +99,6 @@ function getAdapter() {
     case 'netlify':
       return netlify();
     case 'cloudflare':
-    default:
       return cloudflare({
         platformProxy: {
           enabled: true,
@@ -108,6 +108,11 @@ function getAdapter() {
           type: 'worker',
           nodejsCompat: true,
         },
+      });
+    case 'node':
+    default:
+      return node({
+        mode: 'standalone'
       });
   }
 }

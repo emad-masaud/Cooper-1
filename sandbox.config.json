@@ -1,0 +1,8 @@
+{
+  "template": "node",
+  "view": "browser",
+  "start": "npm run dev",
+  "container": {
+    "node": "18"
+  }
+}

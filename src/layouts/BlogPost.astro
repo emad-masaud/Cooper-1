@@ -76,7 +76,7 @@ import ScrollProgress from '~/components/layout/ScrollProgress.astro';
 
         {audioUrl && (
             <div class="mb-8 overflow-hidden rounded-xl shadow-lg border border-black/5 dark:border-white/10">
-                <AudioPlayer src={audioUrl} title={title} client:load />
+                <AudioPlayer src={audioUrl} title={title} />
             </div>
         )}
         

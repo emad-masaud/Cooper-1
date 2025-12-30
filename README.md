@@ -14,6 +14,10 @@ The most advanced, batteries-included template for building blazing-fast SaaS, A
   <a href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FGladTek%2FCooper">
     <img src="https://vercel.com/button" alt="Deploy with Vercel" />
   </a>
+
+  <a href="https://codesandbox.io/p/github/GladTek/Cooper/main">
+    <img src="https://codesandbox.io/api/v1/badges/standard.svg" alt="Open in CodeSandbox" />
+  </a>
 </p>
 
 ## Core Architectural Strategies
@@ -152,14 +156,15 @@ npx @gladtek/launch-cooper@latest
 
    - **Vercel**: `npm run build:vercel`
    - **Netlify**: `npm run build:netlify`
-   - **Cloudflare**: `npm run build:cloudflare` (default)
+   - **Cloudflare**: `npm run build:cloudflare`
+   - **Node.js**: `npm run build` (default)
 
 
 ### Environment Variables
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
-| `ADAPTER` | The build adapter (`vercel`, `netlify`, `cloudflare`). | `cloudflare` |
+| `ADAPTER` | The build adapter (`vercel`, `netlify`, `cloudflare`, `node`). | `node` |
 | `SITE_URL` | The production URL of the site. | `https://cooper.gladtek.com` |
 
 
