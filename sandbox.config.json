@@ -1,8 +1,11 @@
 {
-  "template": "node",
+  "infiniteLoopProtection": true,
+  "hardReloadOnChange": false,
   "view": "browser",
-  "start": "npm run dev",
+  "template": "node",
   "container": {
-    "node": "18"
+    "port": 4321,
+    "startScript": "start",
+    "node": "22"
   }
 }

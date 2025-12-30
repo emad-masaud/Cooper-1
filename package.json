@@ -3,6 +3,9 @@
   "type": "module",
   "version": "0.0.1",
   "description": "A premium Astro template engineered for the unknown. Built for speed, endurance, and exploration.",
+  "engines": {
+    "node": ">=20.18.1"
+  },
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",

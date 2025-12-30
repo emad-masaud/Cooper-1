@@ -14,9 +14,14 @@ The most advanced, batteries-included template for building blazing-fast SaaS, A
   <a href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FGladTek%2FCooper">
     <img src="https://vercel.com/button" alt="Deploy with Vercel" />
   </a>
+</p>
 
-  <a href="https://codesandbox.io/p/github/GladTek/Cooper/main">
-    <img src="https://codesandbox.io/api/v1/badges/standard.svg" alt="Open in CodeSandbox" />
+<p align="center">
+  <a href="https://githubbox.com/GladTek/Cooper/tree/main">
+    <img src="https://codesandbox.io/static/img/play-codesandbox.svg" alt="Open in CodeSandbox" />
+  </a>
+  <a href="https://stackblitz.com/github/GladTek/Cooper">
+    <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz" />
   </a>
 </p>
 
