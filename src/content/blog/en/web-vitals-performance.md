@@ -14,7 +14,7 @@ Core Web Vitals are the essential metrics for a healthy site. Google uses them t
 *   **FID (First Input Delay)**: Interactivity.
 *   **CLS (Cumulative Layout Shift)**: Visual stability.
 
-Cooper is optimized out of the box to score 100 on all these metrics. We use efficient image loading, minimal CSS, and deferred JavaScript to ensure your users have a smooth experience.
+MeaMart is optimized out of the box to score 100 on all these metrics. We use efficient image loading, minimal CSS, and deferred JavaScript to ensure your users have a smooth experience.
 
 
 
