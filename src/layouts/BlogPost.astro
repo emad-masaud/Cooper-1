@@ -54,8 +54,13 @@ const schema = {
   ...(heroImage && { "image": new URL(heroImage.src, Astro.site).toString() }),
   "author": {
       "@type": "Person",
+<<<<<<< HEAD
       "name": authorEntry ? authorEntry.data.name : "Cooper Team",
       "url": Astro.site?.toString() || ""
+=======
+      "name": "MeaMart Team",
+      "url": "https://cooper.example.com" // Replace with dynamic author if available
+>>>>>>> c547363cd421568b09af4d6b27761f411fac0293
   }
 };
 ---

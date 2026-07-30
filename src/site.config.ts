@@ -6,7 +6,7 @@ export const siteConfig = {
   logo: {
     src: '/logo.svg',
     srcDark: '/logo.svg',       // Used when strategy is 'switch'
-    alt: 'Cooper Logo',
+    alt: 'MeaMart Logo',
     strategy: 'invert' as 'invert' | 'switch' | 'static', // 'invert' | 'switch' | 'static'
   },
   ogImage: '/og-image.webp',
