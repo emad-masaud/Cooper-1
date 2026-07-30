@@ -41,7 +41,7 @@ const stripIdsPlugin = () => (tree, file) => {
 const DEFAULT_LOCALE = "en";
 
 function getAdapter() {
-  const adapter = process.env.ADAPTER || 'node';
+  const adapter = process.env.ADAPTER || 'cloudflare';
   switch (adapter) {
     case 'vercel': return vercel({ webAnalytics: { enabled: true } });
     case 'netlify': return netlify();

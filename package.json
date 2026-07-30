@@ -14,11 +14,7 @@
     "build:netlify": "cross-env ADAPTER=netlify astro build",
     "build:cloudflare": "cross-env ADAPTER=cloudflare astro build",
     "preview": "astro preview",
-<<<<<<< HEAD
     "deploy": "pnpm build:cloudflare && wrangler deploy",
-=======
-    "deploy": "npm run build:cloudflare && wrangler deploy",
->>>>>>> c547363cd421568b09af4d6b27761f411fac0293
     "preview:worker": "wrangler dev",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
