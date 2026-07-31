@@ -7,36 +7,27 @@ import { languages } from '~/i18n/ui';
 import { useTranslations } from '~/i18n/utils';
 import { categoriesMap } from '~/utils/categories';
 import { resolveCity } from '~/utils/cities';
-import { supabaseAdminClient } from '~/utils/supabase';
+import { erpnext } from '~/lib/erpnext/client';
 
 export const prerender = false;
 
 const { lang } = Astro.params;
 const t = useTranslations(lang);
 
-// Fetch ads dynamically from Supabase
-const { data: rawAds, error: adsError } = await supabaseAdminClient
-  .from('ads')
-  .select('*')
-  .order('created_at', { ascending: false })
-  .limit(200);
-
-if (adsError) {
-  console.error('Failed to fetch ads from Supabase:', adsError.message);
-}
-
-// Map category ids to slugs
-const { data: categories } = await supabaseAdminClient
-  .from('categories')
-  .select('id, slug');
-const categorySlugById = new Map((categories || []).map((c: any) => [c.id, c.slug]));
+// Fetch ads dynamically from ERPNext
+const { data: rawAds, total_count } = await erpnext.getListings({ limit: 200 }).catch(err => {
+  console.error('Failed to fetch ads from ERPNext:', err);
+  return { data: [], total_count: 0 };
+});
 
 const adsData = (rawAds || []).map((ad: any) => {
-  const categoryKey = categorySlugById.get(ad.category_id) || 'used-items';
+  // Try mapping the category string, or fallback to the string itself if not in categoryMap
+  const categoryKey = ad.category || 'used-items';
   const cat = categoriesMap[categoryKey] || { ar: categoryKey, en: categoryKey };
+  
   const city = resolveCity(ad.city || '');
   return {
-    id: String(ad.id),
+    id: ad.name,
     title: ad.title || 'Untitled',
     price: Number(ad.price) || 0,
     categoryKey,
@@ -45,12 +36,13 @@ const adsData = (rawAds || []).map((ad: any) => {
     cityKey: ad.city || '',
     cityEn: city.en,
     cityAr: city.ar,
-    image: Array.isArray(ad.images) && ad.images[0] ? ad.images[0] : '/logo.svg',
-    sellerPhone: ad.contact_phone || '',
+    image: ad.images && ad.images.length > 0 ? ad.images[0].image : '/logo.svg',
+    sellerPhone: ad.owner_phone || '',
     descriptionEn: ad.description || '',
     descriptionAr: ad.description || '',
     titleEn: ad.title || 'Untitled',
     titleAr: ad.title || 'Untitled',
+    createdAt: ad.creation,
   };
 });
 ---

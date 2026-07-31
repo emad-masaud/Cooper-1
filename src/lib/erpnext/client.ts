@@ -85,24 +85,52 @@ export class ERPNextClient {
     return responseData.message !== undefined ? responseData.message : responseData.data;
   }
 
-  // Specific MeaMart Methods (Updated for new schema)
+  // Specific MeaMart Methods (Standard REST API)
   async getCategories(): Promise<any[]> {
-    const res = await this.get<any>('/api/method/meamart_core.api.categories');
-    return res.data || [];
+    const res = await this.get<any>('/api/resource/Ad Category', {
+      fields: JSON.stringify(['name', 'category_name', 'slug', 'icon']),
+      limit_page_length: 50
+    });
+    return res || [];
   }
 
   async getListings(params?: { limit?: number; offset?: number; category_slug?: string; city?: string; q?: string }): Promise<{data: any[], total_count: number}> {
-    const res = await this.get<any>('/api/method/meamart_core.api.listings', params);
+    const filters: any[] = [];
+    if (params?.category_slug) {
+      filters.push(['category', '=', params.category_slug]);
+    }
+    if (params?.city) {
+      filters.push(['city', '=', params.city]);
+    }
+    if (params?.q) {
+      filters.push(['title', 'like', `%${params.q}%`]);
+    }
+    
+    // Status should be published only
+    filters.push(['status', '=', 'Published']);
+
+    const queryParams: any = {
+      fields: JSON.stringify(['name', 'title', 'price', 'city', 'creation', 'owner']),
+      limit_page_length: params?.limit || 12,
+      limit_start: params?.offset || 0,
+      order_by: 'creation desc',
+    };
+
+    if (filters.length > 0) {
+      queryParams.filters = JSON.stringify(filters);
+    }
+
+    const res = await this.get<any>('/api/resource/Classified Ad', queryParams);
+    return { data: res || [], total_count: res ? res.length : 0 };
+  }
+
+  async getListingDetail(name: string): Promise<any> {
+    const res = await this.get<any>(`/api/resource/Classified Ad/${name}`);
     return res;
   }
 
-  async getListingDetail(slug: string): Promise<any> {
-    const res = await this.get<any>('/api/method/meamart_core.api.listing_detail', { slug });
-    return res.data;
-  }
-
   async createLead(data: { visitor_name: string; source: string; visitor_phone?: string; ad?: string; notes?: string; chat_session_id?: string }): Promise<any> {
-    return this.post<any>('/api/method/meamart_core.api.create_conversation_lead', data);
+    return this.post<any>('/api/resource/Conversation Lead', data);
   }
 }
 

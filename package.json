@@ -38,6 +38,7 @@
     "astro-embed": "^0.13.0",
     "astro-mermaid": "^2.0.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.43.0",
     "fuse.js": "^7.2.0",
     "lucide-react": "1.11.0",
     "mermaid": "^11.14.0",

@@ -15,7 +15,7 @@ import { getCityLabel } from '~/utils/cities';
 import { getMeamartSession } from '~/utils/session';
 import { generateCustomQRCode } from '~/utils/qrcode';
 import { kvPut, kvGet } from '~/utils/kv';
-import { supabaseAdminClient } from '~/utils/supabase';
+import { erpnext } from '~/lib/erpnext/client';
 import { buildAdJsonLd } from '~/utils/schemaGenerator';
 
 export const prerender = false;
@@ -35,38 +35,19 @@ try {
   console.error("Failed to read static ads collection", e);
 }
 
-// Fallback 1: Fetch from Supabase Ads table dynamically
+// Fallback 1: Fetch from ERPNext dynamically
 if (!ad && slug) {
   try {
-    let query = supabaseAdminClient.from('ads').select('*, categories(slug)');
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
+    const adRow = await erpnext.getListingDetail(slug);
     
-    if (isUuid) {
-      query = query.eq('id', slug);
-    } else {
-      query = query.eq('slug', slug);
-    }
-    
-    const { data: adRow, error } = await query.maybeSingle();
-    
-    if (error) {
-      console.error('[ads slug] query error:', error);
-    }
-
     if (adRow) {
       let sellerInfo: any = {};
-      const sellerId = adRow.user_id;
-      if (sellerId) {
-        const { data: profile } = await supabaseAdminClient
-          .from('profiles')
-          .select('*')
-          .eq('id', sellerId)
-          .maybeSingle();
-        if (profile) sellerInfo = profile;
-      }
-      const images = Array.isArray(adRow.images) && adRow.images.length > 0 ? adRow.images : ['/logo.svg'];
+      const sellerId = adRow.owner;
+      
+      const images = Array.isArray(adRow.images) && adRow.images.length > 0 ? adRow.images.map((img: any) => img.image || img.file_url) : ['/logo.svg'];
+      
       ad = {
-        id: String(adRow.id),
+        id: String(adRow.name),
         data: {
           listing_title: adRow.title || 'بدون عنوان',
           listing_description: adRow.description || '',
@@ -76,22 +57,22 @@ if (!ad && slug) {
           listing_city: adRow.city || '',
           listing_district: adRow.district || '',
           listing_address: adRow.address || '',
-          contact_name: adRow.contact_name || sellerInfo.name || '',
-          contact_phone: adRow.contact_phone || sellerInfo.phone || '',
-          contact_whatsapp: adRow.contact_whatsapp || adRow.contact_phone || sellerInfo.phone || '',
+          contact_name: adRow.owner_name || sellerId || '',
+          contact_phone: adRow.owner_phone || '',
+          contact_whatsapp: adRow.owner_whatsapp || adRow.owner_phone || '',
           contact_method: 'whatsapp',
           image: images[0],
           images: images,
-          custom_fields: adRow.custom_fields || {},
-          categoryKey: adRow.custom_fields?._category_slug || adRow.categories?.slug || adRow.category_id || 'used-items',
-          pubDate: new Date(adRow.created_at || Date.now()),
+          custom_fields: {},
+          categoryKey: adRow.category || 'used-items',
+          pubDate: new Date(adRow.creation || Date.now()),
           user_id: sellerId,
-          seller_username: sellerInfo.username || null
+          seller_username: sellerId || null
         }
       };
     }
   } catch (err) {
-    console.error('Failed to load ad from Supabase:', err);
+    console.error('Failed to load ad from ERPNext:', err);
   }
 }
 
@@ -241,15 +222,11 @@ customFields.forEach(field => {
   }
 });
 
-// Comments list from Supabase
+// Comments list from ERPNext (Stubbed for Phase 1)
 let comments: any[] = [];
 try {
-  const { data: commentRows } = await supabaseAdminClient
-    .from('ad_comments')
-    .select('*')
-    .eq('ad_id', ad.id)
-    .eq('status', 'approved')
-    .order('created_at', { ascending: false });
+  // TODO: Fetch from Frappe later
+} catch (e) {
   comments = (commentRows || []).map((c: any) => ({
     authorName: c.author_name || 'Guest',
     date: c.created_at ? new Date(c.created_at).toLocaleDateString(isAr ? 'ar-SA' : 'en-US') : '',
@@ -278,31 +255,7 @@ try {
 
   // Try fetching custom designs from the database
   try {
-    // 1. Fetch Ad QR Options
-    const { data: adQrLink } = await supabaseAdminClient
-      .from('qr_links')
-      .select('qr_options')
-      .eq('entity_type', 'ad')
-      .eq('entity_id', String(ad.id))
-      .maybeSingle();
-      
-    if (adQrLink && adQrLink.qr_options) customAdQrOptions = adQrLink.qr_options;
-
-    // 2. Fetch Seller QR Options reliably by user_id
-    const sellerUserId = String(ad.data.seller_id || ad.data.user_id || '');
-    if (sellerUserId) {
-      const { data: sellerQrLinks } = await supabaseAdminClient
-        .from('qr_links')
-        .select('qr_options')
-        .eq('entity_type', 'seller')
-        .eq('user_id', sellerUserId)
-        .order('created_at', { ascending: false })
-        .limit(1);
-        
-      if (sellerQrLinks && sellerQrLinks.length > 0 && sellerQrLinks[0].qr_options) {
-        customSellerQrOptions = sellerQrLinks[0].qr_options;
-      }
-    }
+    // Stubbed for Phase 1, using defaults
   } catch (e) {
     console.warn('Failed to fetch custom QR options, falling back to default:', e);
   }
