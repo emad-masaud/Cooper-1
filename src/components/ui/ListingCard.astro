@@ -1,0 +1,97 @@
+---
+import { Image } from 'astro:assets';
+import Badge from './Badge.astro';
+import { MapPin, Phone, Tag } from 'lucide-react';
+import { getLangFromUrl, useTranslations } from '~/i18n/utils';
+
+export interface Props {
+  title: string;
+  slug: string;
+  summary?: string;
+  city?: string;
+  category?: string;
+  listing_type?: string;
+  cover_image?: string;
+  whatsapp_number?: string;
+  is_featured?: boolean;
+}
+
+const { 
+  title, 
+  slug, 
+  summary, 
+  city, 
+  category, 
+  listing_type, 
+  cover_image, 
+  whatsapp_number, 
+  is_featured 
+} = Astro.props;
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const erpnextUrl = import.meta.env.ERPNEXT_URL || 'http://139.59.111.91:8080';
+const fallbackImage = 'https://placehold.co/600x400?text=No+Image';
+
+const imageUrl = cover_image 
+  ? (cover_image.startsWith('http') ? cover_image : `${erpnextUrl}${cover_image}`) 
+  : fallbackImage;
+---
+
+<a href={`/${lang}/listings/${slug}`} class={`group relative flex flex-col bg-background rounded-2xl border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden ${is_featured ? 'border-primary/50 shadow-primary/10 shadow-lg' : 'border-border/50'}`}>
+  {is_featured && (
+    <div class="absolute top-4 start-4 z-10">
+      <Badge variant="default" class="bg-primary text-primary-foreground font-semibold shadow-md">
+        {t['nav.featured']}
+      </Badge>
+    </div>
+  )}
+  
+  <div class="relative w-full aspect-[4/3] overflow-hidden bg-muted">
+    <img 
+      src={imageUrl} 
+      alt={title}
+      class="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+      loading="lazy"
+    />
+  </div>
+
+  <div class="flex flex-col flex-1 p-5">
+    <div class="flex items-center justify-between gap-2 mb-2">
+      {category && (
+        <span class="text-xs font-medium text-primary px-2 py-1 bg-primary/10 rounded-full">
+          {category}
+        </span>
+      )}
+      {listing_type && (
+        <span class="text-xs font-medium text-muted-foreground px-2 py-1 bg-muted rounded-full">
+          {listing_type}
+        </span>
+      )}
+    </div>
+
+    <h3 class="text-xl font-semibold mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+      {title}
+    </h3>
+    
+    {summary && (
+      <p class="text-sm text-muted-foreground line-clamp-2 mb-4 flex-1">
+        {summary}
+      </p>
+    )}
+
+    <div class="flex items-center justify-between mt-auto pt-4 border-t border-border/50">
+      <div class="flex items-center text-sm text-muted-foreground">
+        <MapPin className="w-4 h-4 me-1" />
+        {city || 'Unknown Location'}
+      </div>
+      
+      {whatsapp_number && (
+        <div class="flex items-center text-sm font-medium text-green-600 dark:text-green-400">
+          <Phone className="w-4 h-4 me-1" />
+          Contact
+        </div>
+      )}
+    </div>
+  </div>
+</a>

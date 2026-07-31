@@ -85,17 +85,29 @@ export class ERPNextClient {
     return responseData.message !== undefined ? responseData.message : responseData.data;
   }
 
-  // Common Methods
-  async ping(): Promise<string> {
-    return this.get<string>('/api/method/ping');
+  // Specific MeaMart Methods
+  async getCategories(): Promise<any[]> {
+    const res = await this.get<any>('/api/method/meamart_core.meamart_core.api.categories');
+    return res.data || [];
   }
 
-  async getList(doctype: string, fields: string[] = ['name'], filters?: any, limit: number = 20): Promise<any[]> {
-    return this.get<any[]>('/api/resource/' + doctype, {
-      fields,
-      filters,
-      limit_page_length: limit
-    });
+  async getListings(params?: { limit?: number; offset?: number; category_slug?: string; city?: string; featured_only?: boolean }): Promise<{data: any[], total_count: number}> {
+    const res = await this.get<any>('/api/method/meamart_core.meamart_core.api.listings', params);
+    return res; // returns {data, total_count, limit, offset}
+  }
+
+  async getListingDetail(slug: string): Promise<any> {
+    const res = await this.get<any>('/api/method/meamart_core.meamart_core.api.listing_detail', { slug });
+    return res.data;
+  }
+
+  async getAdvertiserDetail(slug: string): Promise<any> {
+    const res = await this.get<any>('/api/method/meamart_core.meamart_core.api.advertiser_detail', { slug });
+    return res.data;
+  }
+
+  async createLead(data: { lead_name: string; source_channel: string; mobile_number?: string; whatsapp_number?: string; advertiser_slug?: string; listing_slug?: string; message_summary?: string; full_message?: string }): Promise<any> {
+    return this.post<any>('/api/method/meamart_core.meamart_core.api.create_conversation_lead', data);
   }
 }
 
