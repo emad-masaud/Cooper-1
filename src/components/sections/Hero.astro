@@ -1,0 +1,52 @@
+---
+import { defaultLang } from '~/i18n/ui';
+import { useTranslations } from '~/i18n/utils';
+import HeroCentered from './hero/HeroCentered.astro';
+import HeroSplit from './hero/HeroSplit.astro';
+import HeroCinematic from './hero/HeroCinematic.astro';
+import HeroTerminal from './hero/HeroTerminal.astro';
+import HeroSearch from './hero/HeroSearch.astro';
+import type { HeroCta, HeroStat } from './hero/types';
+
+interface Props {
+  variant?: 'centered' | 'split' | 'cinematic' | 'terminal' | 'search';
+  badge?: string;
+  title?: string;
+  highlight?: string;
+  description?: string;
+  primaryCta?: HeroCta;
+  secondaryCta?: HeroCta;
+  stats?: HeroStat[];
+}
+
+const { lang = defaultLang } = Astro.params;
+const t = useTranslations(lang);
+
+const {
+  variant = 'centered',
+  badge = t['hero.badge'],
+  title = t['hero.title'],
+  highlight = t['hero.highlight'],
+  description = t['hero.subtitle'],
+  primaryCta = { text: t['hero.getStarted'], href: "/docs" },
+  secondaryCta = { text: t['hero.learnMore'], href: "/docs/overview" },
+  stats = [
+    { label: t['hero.stats.pages'], value: "111+" },
+    { label: t['hero.stats.languages'], value: "4" },
+    { label: t['hero.stats.uptime'], value: "99.9%" },
+  ]
+} = Astro.props;
+
+const heroProps = { badge, title, highlight, description, primaryCta, secondaryCta, stats };
+
+const variants = {
+  centered: HeroCentered,
+  split: HeroSplit,
+  cinematic: HeroCinematic,
+  terminal: HeroTerminal,
+  search: HeroSearch,
+};
+
+const HeroComponent = variants[variant as keyof typeof variants] ?? HeroCentered;
+---
+<HeroComponent {...heroProps} />

@@ -1,0 +1,182 @@
+---
+import Layout from '~/layouts/Layout.astro';
+import { getLangFromUrl, useTranslations } from '~/i18n/utils';
+import { erpnext } from '~/lib/erpnext/client';
+import * as IconList from "lucide-react";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+// Auth check
+if (!Astro.cookies.has('sid')) {
+  return Astro.redirect(`/${lang}/auth/login`);
+}
+
+const sid = Astro.cookies.get('sid')?.value;
+const categories = await erpnext.getCategories();
+
+let error = '';
+let successUrl = '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const data = await Astro.request.formData();
+    const title = data.get('title')?.toString();
+    const description = data.get('description')?.toString();
+    const category = data.get('category')?.toString();
+    const price = data.get('price')?.toString();
+    const city = data.get('city')?.toString();
+    
+    // In a real implementation we would handle multipart form data for images here.
+    // We would use fetch to POST to /api/method/upload_file and then attach the URL to the Classified Ad.
+    
+    const payload = {
+      title,
+      description,
+      category,
+      price: price ? parseFloat(price) : 0,
+      city,
+      status: "Draft" // Defaults to draft, can be published after review
+    };
+    
+    const response = await fetch(`${import.meta.env.PUBLIC_ERPNEXT_URL || 'http://139.59.111.91:8080'}/api/resource/Classified%20Ad`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Cookie': `sid=${sid}`
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      successUrl = `/${lang}/listings/${result.data.name}`;
+      return Astro.redirect(successUrl);
+    } else {
+      const errText = await response.text();
+      console.error("ERPNext Error:", errText);
+      error = 'فشل في إضافة الإعلان. يرجى التأكد من تعبئة جميع الحقول المطلوبة.';
+    }
+  } catch (e) {
+    console.error(e);
+    error = 'حدث خطأ في الاتصال بالخادم';
+  }
+}
+---
+
+<Layout title="أضف إعلانك - ميمارت">
+  <div class="bg-slate-50 dark:bg-slate-900 min-h-screen py-12">
+    <div class="max-w-3xl mx-auto px-6">
+      
+      <div class="text-center mb-10">
+        <h1 class="text-3xl font-bold text-slate-900 dark:text-white mb-2">أضف إعلانك</h1>
+        <p class="text-slate-500">أضف تفاصيل إعلانك للوصول إلى آلاف المشترين</p>
+      </div>
+
+      {error && (
+        <div class="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-sm font-medium border border-red-100 text-center">
+          {error}
+        </div>
+      )}
+
+      <form method="POST" class="bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700 p-8 sm:p-12 space-y-10" id="postForm">
+        
+        <!-- Step 1: Category -->
+        <div class="step" id="step1">
+          <h2 class="text-xl font-bold text-slate-900 dark:text-white mb-6">1. اختر القسم</h2>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {categories.map((cat) => {
+              const IconComponent = cat.icon && (IconList as any)[cat.icon] ? (IconList as any)[cat.icon] : IconList.LayoutGrid;
+              return (
+                <label class="cursor-pointer group">
+                  <input type="radio" name="category" value={cat.name} class="peer sr-only" required />
+                  <div class="flex flex-col items-center p-6 border-2 border-slate-100 dark:border-slate-700 rounded-2xl peer-checked:border-primary-500 peer-checked:bg-primary-50 dark:peer-checked:bg-primary-900/20 peer-checked:text-primary-700 transition-all hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                    <IconComponent size={32} class="mb-3 text-slate-400 group-hover:text-primary-500 peer-checked:text-primary-600 transition-colors" />
+                    <span class="font-medium text-slate-700 dark:text-slate-300 peer-checked:text-primary-700 dark:peer-checked:text-primary-400 text-center">
+                      {cat.category_name}
+                    </span>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+          <div class="mt-8 flex justify-end">
+            <button type="button" onclick="nextStep(2)" class="bg-primary-600 hover:bg-primary-700 text-white rounded-xl px-8 py-3 font-bold transition-colors shadow-lg shadow-primary-600/20">
+              التالي
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 2: Details -->
+        <div class="step hidden" id="step2">
+          <h2 class="text-xl font-bold text-slate-900 dark:text-white mb-6">2. تفاصيل الإعلان</h2>
+          
+          <div class="space-y-6">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">عنوان الإعلان *</label>
+              <input type="text" name="title" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-primary-500 rounded-xl px-4 py-3 outline-none text-slate-900 dark:text-white font-medium" />
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">السعر (ريال) *</label>
+                <input type="number" name="price" required min="0" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-primary-500 rounded-xl px-4 py-3 outline-none text-slate-900 dark:text-white font-medium" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">المدينة *</label>
+                <select name="city" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-primary-500 rounded-xl px-4 py-3 outline-none text-slate-900 dark:text-white font-medium appearance-none">
+                  <option value="">اختر المدينة</option>
+                  <option value="الرياض">الرياض</option>
+                  <option value="جدة">جدة</option>
+                  <option value="الدمام">الدمام</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">وصف الإعلان *</label>
+              <textarea name="description" required rows="5" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-primary-500 rounded-xl px-4 py-3 outline-none text-slate-900 dark:text-white font-medium resize-none"></textarea>
+            </div>
+            
+            <!-- Simple File Input for UI (Upload logic handled separately in real app) -->
+            <div>
+              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">الصور</label>
+              <div class="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-8 text-center hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
+                <IconList.ImagePlus size={32} class="mx-auto text-slate-400 mb-3" />
+                <span class="text-sm font-medium text-slate-600 dark:text-slate-400">اضغط هنا لإضافة صور</span>
+                <input type="file" multiple accept="image/*" class="hidden" />
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-10 flex justify-between">
+            <button type="button" onclick="nextStep(1)" class="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium px-4 py-3">
+              عودة
+            </button>
+            <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white rounded-xl px-8 py-3 font-bold transition-colors shadow-lg shadow-primary-600/20">
+              نشر الإعلان
+            </button>
+          </div>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</Layout>
+
+<script is:inline>
+  function nextStep(stepNumber) {
+    // Basic validation before moving to step 2
+    if (stepNumber === 2) {
+      const selectedCat = document.querySelector('input[name="category"]:checked');
+      if (!selectedCat) {
+        alert('الرجاء اختيار القسم أولاً');
+        return;
+      }
+    }
+    
+    document.querySelectorAll('.step').forEach(el => el.classList.add('hidden'));
+    document.getElementById('step' + stepNumber).classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>

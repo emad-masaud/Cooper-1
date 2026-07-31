@@ -1,0 +1,68 @@
+---
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import Layout from '~/layouts/Layout.astro';
+import ChangelogItem from '~/components/blog/ChangelogItem.astro';
+import ChangelogSidebar from '~/components/changelog/ChangelogSidebar.astro';
+import Container from '~/components/ui/Container.astro';
+import Section from '~/components/layout/Section.astro';
+import PageHeader from '~/components/layout/PageHeader.astro';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('changelog');
+  return entries.map((entry) => {
+    const [lang, ...slugParts] = entry.id.split('/');
+    const slug = slugParts.join('/').replace(/\.[^/.]+$/, "");
+    return {
+      params: { lang, slug },
+      props: { entry },
+    };
+  });
+}
+
+interface Props {
+  entry: CollectionEntry<'changelog'>;
+}
+
+const { entry } = Astro.props;
+const { lang } = Astro.params;
+const { Content } = await render(entry);
+
+---
+
+<Layout 
+    title={`v${entry.data.version}: ${entry.data.title} - Changelog`}
+    description={entry.data.description}
+>
+    <PageHeader 
+        title={`Release <span class="text-primary">v${entry.data.version}</span>`}
+        description={entry.data.description}
+    />
+
+    <Section class="pt-12 pb-24">
+        <Container>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                {/* Sidebar */}
+                <div class="lg:col-span-3">
+                    <ChangelogSidebar lang={lang} currentVersion={entry.data.version} />
+                </div>
+
+                {/* Content */}
+                <div class="lg:col-span-9 max-w-4xl">
+                    <ChangelogItem 
+                        version={entry.data.version}
+                        title={entry.data.title}
+                        pubDate={entry.data.pubDate}
+                        type={entry.data.type}
+                        isSecurity={entry.data.isSecurity}
+                        detailsUrl={entry.data.detailsUrl}
+                        migrationUrl={entry.data.migrationUrl}
+                        body={entry.body || ""}
+                        lang={lang}
+                    >
+                        <Content />
+                    </ChangelogItem>
+                </div>
+            </div>
+        </Container>
+    </Section>
+</Layout>

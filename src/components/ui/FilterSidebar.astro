@@ -1,0 +1,114 @@
+---
+import { getLangFromUrl, useTranslations } from "~/i18n/utils";
+
+interface Props {
+  categories: any[];
+  currentCategory?: string;
+  currentCity?: string;
+}
+
+const { categories, currentCategory, currentCity } = Astro.props;
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+const cities = ["الرياض", "جدة", "الدمام", "مكة", "المدينة", "الخبر"];
+---
+
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 sticky top-24">
+  <h3 class="font-bold text-lg text-slate-900 dark:text-white mb-6">تصفية النتائج</h3>
+  
+  <form action={`/${lang}/listings`} method="GET" class="space-y-6">
+    <!-- Preserve search query -->
+    {Astro.url.searchParams.get('q') && (
+      <input type="hidden" name="q" value={Astro.url.searchParams.get('q')} />
+    )}
+    
+    <!-- Category Filter -->
+    <div>
+      <h4 class="font-medium text-slate-900 dark:text-white mb-3">الفئة</h4>
+      <div class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+        <label class="flex items-center gap-3 cursor-pointer group">
+          <input 
+            type="radio" 
+            name="category_slug" 
+            value="" 
+            checked={!currentCategory}
+            class="w-4 h-4 text-primary-600 focus:ring-primary-500 border-slate-300 dark:border-slate-600 dark:bg-slate-700"
+          />
+          <span class="text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors text-sm">
+            الكل
+          </span>
+        </label>
+        {categories.map((cat) => (
+          <label class="flex items-center gap-3 cursor-pointer group">
+            <input 
+              type="radio" 
+              name="category_slug" 
+              value={cat.slug}
+              checked={currentCategory === cat.slug}
+              class="w-4 h-4 text-primary-600 focus:ring-primary-500 border-slate-300 dark:border-slate-600 dark:bg-slate-700"
+            />
+            <span class="text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors text-sm">
+              {cat.category_name}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+
+    <hr class="border-slate-100 dark:border-slate-700" />
+
+    <!-- City Filter -->
+    <div>
+      <h4 class="font-medium text-slate-900 dark:text-white mb-3">المدينة</h4>
+      <div class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+        <label class="flex items-center gap-3 cursor-pointer group">
+          <input 
+            type="radio" 
+            name="city" 
+            value="" 
+            checked={!currentCity}
+            class="w-4 h-4 text-primary-600 focus:ring-primary-500 border-slate-300 dark:border-slate-600 dark:bg-slate-700"
+          />
+          <span class="text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors text-sm">
+            كل المدن
+          </span>
+        </label>
+        {cities.map((city) => (
+          <label class="flex items-center gap-3 cursor-pointer group">
+            <input 
+              type="radio" 
+              name="city" 
+              value={city}
+              checked={currentCity === city}
+              class="w-4 h-4 text-primary-600 focus:ring-primary-500 border-slate-300 dark:border-slate-600 dark:bg-slate-700"
+            />
+            <span class="text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors text-sm">
+              {city}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+
+    <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white rounded-xl py-3 font-medium transition-colors mt-6">
+      تطبيق الفلاتر
+    </button>
+  </form>
+</div>
+
+<style>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 20px;
+  }
+  :global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #334155;
+  }
+</style>

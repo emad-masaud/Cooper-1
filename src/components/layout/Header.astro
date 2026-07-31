@@ -1,0 +1,158 @@
+---
+import BrandIcon from '~/components/common/BrandIcon.astro';
+import ThemeToggle from '~/components/common/ThemeToggle.astro';
+import MobileMenu from '~/components/islands/MobileMenu';
+import DesktopNav from '~/components/islands/DesktopNav';
+import Search from '~/components/islands/Search';
+import LanguagePicker from '~/components/common/LanguagePicker.astro';
+
+import { NAV_LINKS, ACTION_LINKS, siteConfig } from '~/site.config';
+import { defaultLang } from '~/i18n/ui';
+import { useTranslations } from '~/i18n/utils';
+
+interface Props {
+  availableLangs?: string[];
+}
+
+const { lang = defaultLang } = Astro.params;
+const { availableLangs } = Astro.props;
+const t = useTranslations(lang);
+
+const translateNavLinks = (links: any[], lang: string, t: any): any[] => {
+  return links.map(link => {
+    const key = `nav.${link.label.toLowerCase().replace(/\s+/g, '.')}`;
+    const descKey = `${key}.desc`;
+    
+    const shouldLocalize = link.localize !== false;
+    const href = (!shouldLocalize)
+      ? link.href 
+      : `/${lang}${link.href.startsWith('/') ? '' : '/'}${link.href}`.replace(/\/$/, '') || `/${lang}`;
+
+    return {
+      ...link,
+      label: t[key as keyof typeof t],
+      description: t[descKey as keyof typeof t],
+      href,
+      children: link.children ? translateNavLinks(link.children, lang, t) : undefined
+    };
+  });
+};
+
+const links = translateNavLinks(NAV_LINKS, lang, t);
+
+const primaryHref = ACTION_LINKS.primary.href.startsWith('/docs')
+  ? ACTION_LINKS.primary.href
+  : `/${lang}${ACTION_LINKS.primary.href.startsWith('/') ? '' : '/'}${ACTION_LINKS.primary.href}`.replace(/\/$/, '');
+---
+
+<header id="main-header" class="w-full transition-all duration-500 border-b border-transparent bg-transparent py-4 text-foreground">
+  <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+    <a href={`/${lang}`} class="flex items-center gap-3 text-xl font-bold tracking-tight text-primary dark:text-white group">
+      {siteConfig.logo && (
+        siteConfig.logo.strategy === 'switch' ? (
+          <>
+            <img 
+              src={siteConfig.logo.src} 
+              alt={siteConfig.logo.alt} 
+              width="32"
+              height="32"
+              class="h-8 w-auto group-hover:rotate-6 transition-transform duration-300 dark:hidden block"
+            />
+            <img 
+              src={siteConfig.logo.srcDark || siteConfig.logo.src} 
+              alt={siteConfig.logo.alt} 
+              width="32"
+              height="32"
+              class="h-8 w-auto group-hover:rotate-6 transition-transform duration-300 hidden dark:block"
+            />
+          </>
+        ) : (
+          <img 
+            src={siteConfig.logo.src} 
+            alt={siteConfig.logo.alt} 
+            width="32"
+            height="32"
+            class={`h-8 w-auto group-hover:rotate-6 transition-transform duration-300 ${
+              siteConfig.logo.strategy === 'invert' ? 'dark:invert' : ''
+            }`}
+          />
+        )
+      )}
+      <span class="md:hidden lg:inline">{t['brand.name'] || siteConfig.name}</span>
+    </a>
+    
+    <nav class="hidden md:flex items-center gap-8">
+      <a href={`/${lang}/listings`} class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+        {t['nav.browse']}
+      </a>
+      <a href={`/${lang}/post`} class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+        {t['nav.post_ad']}
+      </a>
+      <a href={`/${lang}/auth/login`} class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+        {t['nav.login']}
+      </a>
+    </nav>
+
+    {/* Mobile/Flyout Menu */}
+    <div class="flex items-center gap-4 shrink-0">
+      {siteConfig.search.enabled && <Search 
+        client:only="react" 
+        placeholder={t['search.placeholder']} 
+        lang={lang}
+      />}
+      <LanguagePicker availableLangs={availableLangs} />
+      <ThemeToggle />
+      <a 
+        href={ACTION_LINKS.social.github}
+        target="_blank" 
+        rel="noopener noreferrer"
+        class="text-foreground hover:text-foreground/70 dark:text-white dark:hover:text-blue-300 transition-colors hidden md:block"
+        aria-label="GitHub"
+      >
+        <BrandIcon icon="github" className="w-5 h-5" />
+      </a>
+      <a 
+        href={primaryHref}
+        class="hidden md:block px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-all"
+      >
+        {t['hero.getStarted'] || ACTION_LINKS.primary.label}
+      </a>
+      
+      <div class="md:hidden">
+        <MobileMenu 
+          client:only="react" 
+          links={links} 
+          currentPath={Astro.url.pathname} 
+          labels={{
+            menu: t['nav.menu'],
+            getStarted: t['hero.getStarted'] || ACTION_LINKS.primary.label
+          }}
+        />
+      </div>
+    </div>
+  </div>
+</header>
+
+<script>
+  function initHeader() {
+    const header = document.getElementById('main-header');
+    if (!header) return;
+
+    const handleScroll = () => {
+      if (window.scrollY > 20) {
+        header.classList.remove('bg-transparent', 'border-transparent', 'py-4');
+        header.classList.add('bg-background/80', 'backdrop-blur-md', 'border-foreground/10', 'py-2', 'shadow-sm');
+      } else {
+        header.classList.add('bg-transparent', 'border-transparent', 'py-4');
+        header.classList.remove('bg-background/80', 'backdrop-blur-md', 'border-foreground/10', 'py-2', 'shadow-sm');
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Initial check
+  }
+
+  // Run on first load and view transitions
+  initHeader();
+  document.addEventListener('astro:page-load', initHeader);
+</script>

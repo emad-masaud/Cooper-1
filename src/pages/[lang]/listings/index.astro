@@ -1,0 +1,89 @@
+---
+export const prerender = false;
+import Layout from '~/layouts/Layout.astro';
+import { defaultLang } from '~/i18n/ui';
+import { useTranslations } from '~/i18n/utils';
+import ListingCard from '~/components/ui/ListingCard.astro';
+import { erpnext } from '~/lib/erpnext/client';
+import Section from '~/components/layout/Section.astro';
+import { Search } from 'lucide-react';
+
+const { lang = defaultLang } = Astro.params;
+const t = useTranslations(lang);
+
+// Parse query params
+const searchParams = Astro.url.searchParams;
+const q = searchParams.get('q') || '';
+const city = searchParams.get('city') || '';
+const category_slug = searchParams.get('category') || '';
+
+let listings = [];
+let total_count = 0;
+let error = null;
+
+try {
+  const result = await erpnext.getListings({
+    limit: 50,
+    city: city || undefined,
+    category_slug: category_slug || undefined
+  });
+  
+  listings = result.data || [];
+  total_count = result.total_count || 0;
+  
+  if (q) {
+    const qLower = q.toLowerCase();
+    listings = listings.filter(l => 
+      l.title?.toLowerCase().includes(qLower) || 
+      l.summary?.toLowerCase().includes(qLower)
+    );
+    total_count = listings.length;
+  }
+} catch (e) {
+  error = "Failed to fetch listings. Please try again later.";
+  console.error("Error fetching listings:", e);
+}
+---
+
+<Layout title={`${t['nav.listings']} | MeaMart`} description="Browse classified ads on MeaMart">
+  <div class="pt-32 pb-20">
+    <Section class="py-8">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
+        <div>
+          <h1 class="text-4xl font-bold mb-4">{t['nav.all.ads']}</h1>
+          <p class="text-muted-foreground">{t['nav.all.ads.desc']} ({total_count} results)</p>
+        </div>
+        
+        <form class="flex gap-2 w-full md:w-auto" action={`/${lang}/listings`} method="get">
+          <div class="relative flex-1 md:w-64">
+            <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-muted-foreground">
+              <Search className="w-4 h-4" />
+            </div>
+            <input type="text" name="q" value={q} class="block w-full p-2.5 ps-10 text-sm bg-background border border-border rounded-lg focus:ring-primary focus:border-primary" placeholder={t['search.placeholder']} />
+          </div>
+          <button type="submit" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+            {t['search.placeholder'].replace('...', '')}
+          </button>
+        </form>
+      </div>
+
+      {error ? (
+        <div class="p-6 bg-destructive/10 text-destructive rounded-xl text-center">
+          {error}
+        </div>
+      ) : listings.length === 0 ? (
+        <div class="text-center py-20 border border-dashed border-border rounded-2xl">
+          <h3 class="text-xl font-medium mb-2">No listings found</h3>
+          <p class="text-muted-foreground">Try adjusting your search criteria</p>
+          <a href={`/${lang}/listings`} class="inline-block mt-6 text-primary hover:underline">Clear all filters</a>
+        </div>
+      ) : (
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {listings.map((listing) => (
+            <ListingCard {...listing} />
+          ))}
+        </div>
+      )}
+    </Section>
+  </div>
+</Layout>

@@ -1,0 +1,143 @@
+---
+import Header from '~/components/layout/Header.astro';
+import Footer from '~/components/layout/Footer.astro';
+import Analytics from '~/components/common/Analytics.astro';
+import SEO from '~/components/layout/SEO.astro';
+import Schema from '~/components/layout/Schema.astro';
+import CookieConsent from '~/components/common/CookieConsent.astro';
+import '../styles/global.css';
+import AnnouncementBanner from '~/components/sections/AnnouncementBanner.astro';
+
+interface Props {
+	title?: string;
+	description?: string;
+    image?: string;
+    imageWidth?: number;
+    imageHeight?: number;
+    imageAlt?: string;
+    article?: boolean;
+    noindex?: boolean;
+    nofollow?: boolean;
+    availableLangs?: string[];
+    children?: any;
+}
+
+import { Font } from "astro:assets";
+import { siteConfig, ACTION_LINKS } from '~/site.config';
+
+
+import { defaultLang } from '~/i18n/ui';
+import { isRtl, useTranslations } from '~/i18n/utils';
+
+const { lang = defaultLang } = Astro.params;
+const t = useTranslations(lang);
+const brandName = (t as any)['brand.name'] || siteConfig.name;
+
+const { 
+    title = brandName, 
+    description = siteConfig.description, 
+    image, 
+    imageWidth,
+    imageHeight,
+    imageAlt,
+    article = false,
+    noindex = false,
+    nofollow = false,
+    availableLangs
+} = Astro.props;
+
+const dir = isRtl(lang) ? 'rtl' : 'ltr';
+---
+
+<!doctype html>
+<html lang={lang} dir={dir}>
+	<head>
+		<meta charset="UTF-8" />
+        <Font cssVariable="--font-inter" />
+        <Font cssVariable="--font-outfit" />
+        <SEO 
+            title={title} 
+            description={description} 
+            image={image} 
+            imageWidth={imageWidth}
+            imageHeight={imageHeight}
+            imageAlt={imageAlt}
+            article={article} 
+            noindex={noindex}
+            nofollow={nofollow}
+        />
+        <Schema item={{
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": brandName,
+            "url": Astro.site,
+            "logo": new URL(siteConfig.logo.src, Astro.site).toString(),
+            "sameAs": [
+                ACTION_LINKS.social?.twitter,
+                ACTION_LINKS.social?.github,
+                ACTION_LINKS.social?.linkedin,
+                ACTION_LINKS.social?.facebook
+            ].filter(Boolean)
+        }} />
+         {Astro.url.pathname !== '/' && (
+            <Schema item={{
+                "@context": "https://schema.org",
+                "@type": "BreadcrumbList",
+                "itemListElement": Astro.url.pathname.split('/').filter(Boolean).map((part, index, arr) => ({
+                    "@type": "ListItem",
+                    "position": index + 1,
+                    "name": part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' '),
+                    "item": new URL(arr.slice(0, index + 1).join('/'), Astro.site).toString()
+                }))
+            }} />
+        )}
+        <style is:global define:vars={{ primary: siteConfig.primaryColor }}>
+          :theme {
+            --color-primary: var(--primary);
+          }
+        </style>
+        <script is:inline>
+            const getTheme = () => {
+                if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+                    return localStorage.getItem('theme');
+                }
+                if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    return 'dark';
+                }
+                return 'light';
+            };
+            const theme = getTheme();
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        </script>
+        <Analytics />
+        <slot name="head" />
+		</head>
+		<body class="min-h-screen flex flex-col antialiased bg-background text-foreground selection:bg-primary selection:text-white">
+        <div class="fixed inset-0 z-[-1] bg-background"></div>
+
+        <div class="fixed top-0 w-full z-50 flex flex-col items-stretch">
+            {siteConfig.announcement?.enabled && (
+                <AnnouncementBanner 
+                    id={siteConfig.announcement.id}
+                    message={t['announcement.message']}
+                    link={
+                        siteConfig.announcement.localizeLink && siteConfig.announcement.link
+                            ? `/${lang}${siteConfig.announcement.link.startsWith('/') ? siteConfig.announcement.link : '/' + siteConfig.announcement.link}`
+                            : siteConfig.announcement.link
+                    }
+                    linkText={t['announcement.action']}
+                />
+            )}
+            <Header availableLangs={availableLangs} />
+        </div>
+		<main>
+			<slot />
+		</main>
+        <CookieConsent />
+		<Footer />
+	</body>
+</html>

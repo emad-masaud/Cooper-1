@@ -1,0 +1,103 @@
+---
+import { Image } from 'astro:assets';
+import { defaultLang } from '~/i18n/ui';
+import { isRtl, useTranslations } from '~/i18n/utils';
+import Card from '~/components/ui/Card.astro';
+
+import { getEntry } from 'astro:content';
+
+interface Props {
+  title: string;
+  description: string;
+  pubDate: Date;
+  slug: string;
+  heroImage?: ImageMetadata;
+  isVideo?: boolean;
+  audioUrl?: string;
+  author?: string;
+}
+
+const { title, description, pubDate, slug, heroImage, isVideo = false, audioUrl, author: authorSlug } = Astro.props;
+const { lang = defaultLang } = Astro.params;
+const t = useTranslations(lang);
+
+// Fetch author if provided
+let authorName = '';
+if (authorSlug) {
+  const authorEntry = await getEntry('authors', `${lang}/${authorSlug}`) || await getEntry('authors', `${defaultLang}/${authorSlug}`);
+  if (authorEntry) {
+    authorName = authorEntry.data.name;
+  }
+}
+
+const dateString = pubDate.toLocaleDateString(lang, {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+});
+---
+
+<Card href={slug} class="p-0 overflow-hidden hover:shadow-primary/10 hover:-translate-y-1 block h-full group">
+  <div class="relative aspect-video w-full overflow-hidden bg-muted">
+    {heroImage ? (
+       <Image 
+         src={heroImage} 
+         alt={title} 
+         class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+         width={600}
+         densities={[1.5, 2]}
+       />
+    ) : (
+        <div class="h-full w-full flex items-center justify-center bg-black/5 dark:bg-white/5">
+            <span class="text-4xl">📝</span>
+        </div>
+    )}
+
+    {isVideo && (
+      <div class="absolute top-3 right-3 z-10">
+        <div class="bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-3 py-1 flex items-center gap-2 shadow-lg">
+          <div class="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-white drop-shadow-sm">Video</span>
+        </div>
+      </div>
+    )}
+
+    {audioUrl && (
+      <div class={`absolute top-3 ${isVideo ? 'right-24' : 'right-3'} z-10`}>
+        <div class="bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-3 py-1 flex items-center gap-2 shadow-lg">
+          <div class="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-white drop-shadow-sm">Audio</span>
+        </div>
+      </div>
+    )}
+    
+    <div class="absolute inset-0 bg-linear-to-t from-background/80 via-background/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
+  </div>
+
+  <div class="p-6">
+    <div class="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+      <time datetime={pubDate.toISOString()}>{dateString}</time>
+      {authorName && (
+        <>
+          <span>•</span>
+          <span class="font-medium text-primary/80">{authorName}</span>
+        </>
+      )}
+      <span>•</span>
+      <span>{t['nav.blog']}</span>
+    </div>
+    
+    <h2 class="text-xl font-display font-bold mb-2 group-hover:text-primary transition-colors">
+      {title}
+    </h2>
+    
+    <p class="text-muted-foreground text-sm line-clamp-2">
+      {description}
+    </p>
+
+    <div class={`mt-4 flex items-center gap-2 text-sm font-medium text-primary opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 ${isRtl(lang) ? 'translate-x-2' : '-translate-x-2'}`}>
+      <span>{t['blog.readMore']}</span> 
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={`w-4 h-4 ${isRtl(lang) ? 'rotate-180' : ''}`}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+    </div>
+  </div>
+</Card>

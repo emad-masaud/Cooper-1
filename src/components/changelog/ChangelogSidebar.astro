@@ -1,0 +1,79 @@
+---
+import { getCollection } from 'astro:content';
+import { isRtl } from '~/i18n/utils';
+
+import { useTranslations } from '~/i18n/utils';
+
+interface Props {
+  lang: string;
+  currentVersion?: string;
+}
+
+const { lang, currentVersion } = Astro.props;
+const t = useTranslations(lang);
+
+const entries = (await getCollection('changelog'))
+    .filter((entry) => entry.id.startsWith(`${lang}/`))
+    .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+const rtl = isRtl(lang);
+const arrow = rtl ? '←' : '→';
+---
+
+<aside class:list={["sticky top-24 h-fit max-h-[calc(100vh-8rem)] overflow-y-auto custom-scrollbar", rtl ? "pl-6" : "pr-6"]}>
+  <div class="space-y-8">
+    <div>
+      <h2 class="text-xs font-bold uppercase tracking-widest text-foreground/40 mb-4 flex items-center gap-2">
+        <div class="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--color-primary)]"></div>
+        {t['changelog.sidebar.releases']}
+      </h2>
+      <nav class="space-y-1">
+        <a 
+            href={`/${lang}/changelog`} 
+            class:list={[
+                "group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-all",
+                !currentVersion ? "bg-primary/10 text-primary" : "text-foreground/60 hover:text-foreground hover:bg-foreground/5"
+            ]}
+        >
+          <span>{t['changelog.sidebar.all_updates']}</span>
+          {!currentVersion && <span class="text-[10px] font-bold opacity-50">{arrow}</span>}
+        </a>
+
+        {entries.map((entry) => {
+          const isActive = currentVersion === entry.data.version;
+          const slug = entry.id.split('/').slice(1).join('/').replace(/\.[^/.]+$/, "");
+          
+          return (
+            <a
+              href={`/${lang}/changelog/${slug}`}
+              class:list={[
+                "group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-all border border-transparent",
+                isActive 
+                    ? "bg-primary/10 text-primary border-primary/20" 
+                    : "text-foreground/60 hover:text-foreground hover:bg-foreground/5 hover:border-foreground/10"
+              ]}
+            >
+              <div class="flex items-center gap-2">
+                <span class={isActive ? "font-bold" : ""}>v{entry.data.version}</span>
+              </div>
+              {isActive && <div class="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_5px_var(--color-primary)]"></div>}
+            </a>
+          );
+        })}
+      </nav>
+    </div>
+  </div>
+</aside>
+
+<style>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 2px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-foreground-10);
+    border-radius: 10px;
+  }
+</style>
