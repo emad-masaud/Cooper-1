@@ -1,24 +1,21 @@
+const dummyPromise = Promise.resolve({ data: null, error: null });
+const createMockChain = () => {
+  const chain: any = new Proxy(function() {}, {
+    get: (target, prop) => {
+      if (prop === 'then') return dummyPromise.then.bind(dummyPromise);
+      if (prop === 'catch') return dummyPromise.catch.bind(dummyPromise);
+      if (prop === 'finally') return dummyPromise.finally.bind(dummyPromise);
+      return chain;
+    },
+    apply: () => chain
+  });
+  return chain;
+};
+
 export const supabaseAdminClient = {
-  from: (table: string) => ({
-    select: () => ({
-      eq: () => ({
-        eq: () => ({
-          order: () => ({
-            limit: () => Promise.resolve({ data: [], error: null })
-          }),
-          limit: () => Promise.resolve({ data: [], error: null })
-        }),
-        order: () => ({
-          limit: () => Promise.resolve({ data: [], error: null })
-        }),
-        limit: () => Promise.resolve({ data: [], error: null })
-      }),
-      order: () => ({
-        limit: () => Promise.resolve({ data: [], error: null })
-      }),
-      limit: () => Promise.resolve({ data: [], error: null })
-    })
-  })
+  from: () => createMockChain(),
+  auth: createMockChain(),
+  storage: createMockChain()
 };
 
 export const supabase = supabaseAdminClient;
