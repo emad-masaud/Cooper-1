@@ -33,4 +33,4 @@ for (const path in locales) {
 
 export const defaultLang = import.meta.env.DEFAULT_LOCALE || 'en';
 
-// Force Vite reload 1784505092962
+// Force Vite reload 1784505099999
