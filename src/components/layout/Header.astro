@@ -80,9 +80,18 @@ const primaryHref = ACTION_LINKS.primary.href.startsWith('/docs')
       )}
       <span class="md:hidden lg:inline">{t['brand.name'] || siteConfig.name}</span>
     </a>
-    <div class="flex-1 flex justify-center mx-4 lg:mx-8">
-      <DesktopNav client:only="react" links={links} currentPath={Astro.url.pathname} />
-    </div>
+    
+    <nav class="hidden md:flex items-center gap-8">
+      <a href={`/${lang}/listings`} class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+        {t['nav.browse']}
+      </a>
+      <a href={`/${lang}/post`} class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+        {t['nav.post_ad']}
+      </a>
+      <a href={`/${lang}/auth/login`} class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+        {t['nav.login']}
+      </a>
+    </nav>
 
     {/* Mobile/Flyout Menu */}
     <div class="flex items-center gap-4 shrink-0">

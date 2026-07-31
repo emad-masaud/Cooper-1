@@ -87,22 +87,22 @@ export class ERPNextClient {
 
   // Specific MeaMart Methods (Updated for new schema)
   async getCategories(): Promise<any[]> {
-    const res = await this.get<any>('/api/method/meamart_core.meamart_core.api.categories');
+    const res = await this.get<any>('/api/method/meamart_core.api.categories');
     return res.data || [];
   }
 
   async getListings(params?: { limit?: number; offset?: number; category_slug?: string; city?: string; q?: string }): Promise<{data: any[], total_count: number}> {
-    const res = await this.get<any>('/api/method/meamart_core.meamart_core.api.listings', params);
+    const res = await this.get<any>('/api/method/meamart_core.api.listings', params);
     return res;
   }
 
   async getListingDetail(slug: string): Promise<any> {
-    const res = await this.get<any>('/api/method/meamart_core.meamart_core.api.listing_detail', { slug });
+    const res = await this.get<any>('/api/method/meamart_core.api.listing_detail', { slug });
     return res.data;
   }
 
   async createLead(data: { visitor_name: string; source: string; visitor_phone?: string; ad?: string; notes?: string; chat_session_id?: string }): Promise<any> {
-    return this.post<any>('/api/method/meamart_core.meamart_core.api.create_conversation_lead', data);
+    return this.post<any>('/api/method/meamart_core.api.create_conversation_lead', data);
   }
 }
 
