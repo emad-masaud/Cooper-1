@@ -28,10 +28,10 @@ import { useTranslations } from '~/i18n/utils';
 
 export interface Props {
   lang: string;
-  heroVariant?: 'centered' | 'split' | 'cinematic' | 'terminal';
+  heroVariant?: 'centered' | 'split' | 'cinematic' | 'terminal' | 'search';
 }
 
-const { lang, heroVariant = 'centered' } = Astro.props;
+const { lang, heroVariant = 'search' } = Astro.props;
 const t = useTranslations(lang);
 
 const logos = [

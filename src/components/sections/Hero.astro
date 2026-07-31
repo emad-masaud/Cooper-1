@@ -5,10 +5,11 @@ import HeroCentered from './hero/HeroCentered.astro';
 import HeroSplit from './hero/HeroSplit.astro';
 import HeroCinematic from './hero/HeroCinematic.astro';
 import HeroTerminal from './hero/HeroTerminal.astro';
+import HeroSearch from './hero/HeroSearch.astro';
 import type { HeroCta, HeroStat } from './hero/types';
 
 interface Props {
-  variant?: 'centered' | 'split' | 'cinematic' | 'terminal';
+  variant?: 'centered' | 'split' | 'cinematic' | 'terminal' | 'search';
   badge?: string;
   title?: string;
   highlight?: string;
@@ -43,6 +44,7 @@ const variants = {
   split: HeroSplit,
   cinematic: HeroCinematic,
   terminal: HeroTerminal,
+  search: HeroSearch,
 };
 
 const HeroComponent = variants[variant as keyof typeof variants] ?? HeroCentered;

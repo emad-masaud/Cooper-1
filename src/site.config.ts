@@ -1,8 +1,8 @@
 
 
 export const siteConfig = {
-  name: 'Cooper',
-  description: 'Premium Astro Boilerplate for explorers.',
+  name: 'MeaMart',
+  description: 'The smart Arabic classifieds marketplace platform with AI-powered chat.',
   logo: {
     src: '/logo.svg',
     srcDark: '/logo.svg',       // Used when strategy is 'switch'
@@ -66,53 +66,35 @@ export const siteConfig = {
 
 export const NAV_LINKS = [
   { 
-    href: '/features', 
-    label: 'Product',
+    href: '/categories', 
+    label: 'Categories',
     children: [
-        { href: '/features', label: 'Features', description: 'What makes us different', icon: 'Zap' },
-        { href: '/pricing', label: 'Pricing', description: 'Plans for every team', icon: 'CreditCard' },
+        { href: '/categories/vehicles', label: 'Vehicles', description: 'Cars, bikes, and boats', icon: 'Car' },
+        { href: '/categories/real-estate', label: 'Real Estate', description: 'Apartments and villas', icon: 'Home' },
+        { href: '/categories/electronics', label: 'Electronics', description: 'Phones and computers', icon: 'Laptop' },
+        { href: '/categories/services', label: 'Services', description: 'Professional services', icon: 'Wrench' },
     ]
   },
   { 
-    href: '/docs', 
-    label: 'Resources',
+    href: '/listings', 
+    label: 'Listings',
     children: [
-        { href: '/docs/getting-started', label: 'Docs', description: 'Start building today', icon: 'Book', localize: false },
-        { href: '/blog', label: 'Blog', description: 'Latest updates & guides', icon: 'Newspaper' },
-        { href: '/changelog', label: 'Changelog', description: 'New features & fixes', icon: 'FileClock' },
-    ]
-  },
-  { 
-    href: '/portfolio', 
-    label: 'Work',
-    children: [
-        { href: '/portfolio', label: 'All Projects', description: 'Our complete portfolio', icon: 'LayoutGrid' },
-        { href: '/design', label: 'Design System', description: 'Style guide & tokens', icon: 'Palette' },
+        { href: '/listings', label: 'All Ads', description: 'Browse all recent ads', icon: 'List' },
+        { href: '/featured', label: 'Featured', description: 'Premium listings', icon: 'Star' },
     ]
   },
   {
     href: '/about',
     label: 'Company',
     children: [
-        { href: '/about', label: 'About', description: 'Our story & mission', icon: 'Building2' },
-        { href: '/contact', label: 'Contact', description: 'Get in touch with us', icon: 'Mail' },
+        { href: '/about', label: 'About Us', description: 'Who we are', icon: 'Building2' },
+        { href: '/contact', label: 'Contact', description: 'Get in touch', icon: 'Mail' },
     ]
-  },
-  {
-    href: '/demo/home-centered',
-    label: 'Demos',
-    localize: false,
-    children: [
-        { href: '/demo/home-centered', label: 'Home Centered', description: 'Default centered hero', icon: 'LayoutTemplate', localize: false },
-        { href: '/demo/home-split', label: 'Home Split', description: 'Split-screen hero with orbit visual', icon: 'Columns2', localize: false },
-        { href: '/demo/home-cinematic', label: 'Home Cinematic', description: 'Full-bleed cinematic hero', icon: 'Film', localize: false },
-        { href: '/demo/home-terminal', label: 'Home Terminal', description: 'Mission-readout hero with stats', icon: 'Terminal', localize: false },
-    ]
-  },
+  }
 ];
 
 export const ACTION_LINKS = {
-  primary: { label: 'Get Started', href: '/docs/getting-started' },
+  primary: { label: 'Post Ad', href: '/post-ad' },
   social: { 
     twitter: 'https://twitter.com/gladtek',
     linkedin: 'https://linkedin.com/company/gladtek',
