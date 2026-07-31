@@ -84,7 +84,8 @@ async function listLocal(prefix: string): Promise<string[]> {
 }
 
 export async function kvGet(context: any, key: string): Promise<string | null> {
-  const KV = context.locals?.runtime?.env?.SESSION;
+  let KV;
+  try { KV = context.locals?.runtime?.env?.SESSION; } catch (e) {}
   if (KV) {
     return await KV.get(key);
   }
@@ -92,7 +93,8 @@ export async function kvGet(context: any, key: string): Promise<string | null> {
 }
 
 export async function kvPut(context: any, key: string, value: string): Promise<void> {
-  const KV = context.locals?.runtime?.env?.SESSION;
+  let KV;
+  try { KV = context.locals?.runtime?.env?.SESSION; } catch (e) {}
   if (KV) {
     await KV.put(key, value);
     return;
@@ -101,10 +103,11 @@ export async function kvPut(context: any, key: string, value: string): Promise<v
 }
 
 export async function kvList(context: any, prefix: string): Promise<string[]> {
-  const KV = context.locals?.runtime?.env?.SESSION;
+  let KV;
+  try { KV = context.locals?.runtime?.env?.SESSION; } catch (e) {}
   if (KV) {
-    const listRes = await KV.list({ prefix });
-    return listRes.keys.map((k: any) => k.name);
+    const list = await KV.list({ prefix });
+    return list.keys.map((k: any) => k.name);
   }
   return await listLocal(prefix);
 }
