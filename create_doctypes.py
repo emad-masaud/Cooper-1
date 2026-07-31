@@ -93,6 +93,45 @@ def create_doctypes():
         doc.insert(ignore_permissions=True)
         print("Created Ad Lead")
     
-    frappe.db.commit()
+    # Mock Data
+    if not frappe.db.exists("Ad Category", "Electronics"):
+        cat1 = frappe.new_doc("Ad Category")
+        cat1.category_name = "Electronics"
+        cat1.slug = "electronics"
+        cat1.icon = "Laptop"
+        cat1.insert(ignore_permissions=True)
 
-create_doctypes()
+    if not frappe.db.exists("Ad Category", "Vehicles"):
+        cat2 = frappe.new_doc("Ad Category")
+        cat2.category_name = "Vehicles"
+        cat2.slug = "vehicles"
+        cat2.icon = "Car"
+        cat2.insert(ignore_permissions=True)
+        
+    if not frappe.db.exists("Classified Ad", {"title": "iPhone 15 Pro Max"}):
+        ad1 = frappe.new_doc("Classified Ad")
+        ad1.title = "iPhone 15 Pro Max"
+        ad1.description = "Almost new iPhone 15 Pro Max. Clean condition."
+        ad1.category = "Electronics"
+        ad1.price = 4500
+        ad1.city = "Riyadh"
+        ad1.status = "Published"
+        ad1.owner_name = "Ahmed"
+        ad1.owner_whatsapp = "+966500000000"
+        ad1.insert(ignore_permissions=True)
+        
+    if not frappe.db.exists("Classified Ad", {"title": "Toyota Camry 2023"}):
+        ad2 = frappe.new_doc("Classified Ad")
+        ad2.title = "Toyota Camry 2023"
+        ad2.description = "Used Camry, good condition, 40k KM."
+        ad2.category = "Vehicles"
+        ad2.price = 90000
+        ad2.city = "Jeddah"
+        ad2.status = "Published"
+        ad2.owner_name = "Saleh"
+        ad2.owner_whatsapp = "+966500000001"
+        ad2.insert(ignore_permissions=True)
+        
+    frappe.db.commit()
+    print("Doctypes and mock data created.")
+

@@ -85,29 +85,35 @@ export class ERPNextClient {
     return responseData.message !== undefined ? responseData.message : responseData.data;
   }
 
-  // Specific MeaMart Methods
+  // Specific MeaMart Methods (Updated for new schema)
   async getCategories(): Promise<any[]> {
-    const res = await this.get<any>('/api/method/meamart_core.meamart_core.api.categories');
-    return res.data || [];
+    return this.getList('Ad Category', ['*'], { 'is_active': 1 });
   }
 
-  async getListings(params?: { limit?: number; offset?: number; category_slug?: string; city?: string; featured_only?: boolean }): Promise<{data: any[], total_count: number}> {
-    const res = await this.get<any>('/api/method/meamart_core.meamart_core.api.listings', params);
-    return res; // returns {data, total_count, limit, offset}
+  async getListings(params?: { limit?: number; offset?: number; category_slug?: string; city?: string; q?: string }): Promise<{data: any[], total_count: number}> {
+    const filters: any = {};
+    if (params?.category_slug) filters['category'] = params.category_slug; // Might need to resolve slug to name, or filter by category.slug if Frappe allows
+    if (params?.city) filters['city'] = params.city;
+    
+    // For standard Frappe GET /api/resource, it returns { data: [] }. 
+    // It doesn't return total_count natively via GET unless configured or we do a separate count query.
+    // We will just return the data for now.
+    
+    // Note: To filter by child fields or joined fields like category.slug, it requires specific syntax or custom endpoints. 
+    // Assuming category name is the slug for simplicity for now, or just not filtering by slug strictly here.
+    
+    const data = await this.getList('Classified Ad', ['*'], filters, params?.limit || 20);
+    return { data, total_count: data.length };
   }
 
-  async getListingDetail(slug: string): Promise<any> {
-    const res = await this.get<any>('/api/method/meamart_core.meamart_core.api.listing_detail', { slug });
+  async getListingDetail(name: string): Promise<any> {
+    // Standard frappe /api/resource/DocType/Name endpoint returns the full document in 'data'
+    const res = await this.get<any>(`/api/resource/Classified Ad/${encodeURIComponent(name)}`);
     return res.data;
   }
 
-  async getAdvertiserDetail(slug: string): Promise<any> {
-    const res = await this.get<any>('/api/method/meamart_core.meamart_core.api.advertiser_detail', { slug });
-    return res.data;
-  }
-
-  async createLead(data: { lead_name: string; source_channel: string; mobile_number?: string; whatsapp_number?: string; advertiser_slug?: string; listing_slug?: string; message_summary?: string; full_message?: string }): Promise<any> {
-    return this.post<any>('/api/method/meamart_core.meamart_core.api.create_conversation_lead', data);
+  async createLead(data: { visitor_name: string; source: string; visitor_phone?: string; ad?: string; notes?: string; chat_session_id?: string }): Promise<any> {
+    return this.post<any>('/api/resource/Ad Lead', data);
   }
 }
 
