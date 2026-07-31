@@ -50,7 +50,7 @@ const formattedPrice = t["ads.card.price.format"]
 const adIdMatch = slug.match(/-(\d+)$/);
 const rawId = adIdMatch ? adIdMatch[1] : slug;
 const shortId = (typeof rawId === 'string' && rawId.includes('-')) ? rawId.split('-')[0].toUpperCase() : String(rawId).slice(0, 8).toUpperCase();
-const whatsappBotNumber = siteConfig.chatbot.phoneNumber;
+const whatsappBotNumber = siteConfig.chatbot?.phoneNumber || '';
 const whatsappText = t["ad.whatsapp.msg"].replace("{id}", shortId);
 const whatsappUrl = `https://wa.me/${whatsappBotNumber}?text=${encodeURIComponent(whatsappText)}`;
 

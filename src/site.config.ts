@@ -77,6 +77,16 @@ export const siteConfig = {
   features: {
     rss: false,
   },
+  chatbot: {
+    phoneNumber: '966500000000',
+  },
+  pricing: {
+    enabled: true,
+  },
+  banners: {
+    enabled: false,
+    inFeedMarketplace: null,
+  },
 };
 
 export const NAV_LINKS = [
