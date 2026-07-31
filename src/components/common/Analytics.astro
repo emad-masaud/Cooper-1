@@ -21,8 +21,8 @@ interface Props {
 import { siteConfig } from '~/site.config';
 
 const { config = siteConfig } = Astro.props;
-const { vendors, alwaysLoad } = config.analytics;
-const { gtm, facebookPixel, snapchatPixel, tiktokPixel } = config.marketing;
+const { vendors, alwaysLoad } = config.analytics || {};
+const { gtm, facebookPixel, snapchatPixel, tiktokPixel } = config.marketing || {};
 ---
 
 <!-- ── Google Tag Manager (HEAD) ──────────────────────────────────── -->

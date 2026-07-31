@@ -16,17 +16,17 @@ export async function getActiveConfig(astroContext: any) {
           keywords: override.keywords || siteConfig.seo.keywords,
         },
         marketing: {
-          ...siteConfig.marketing,
-          googleSiteVerification: override.googleSiteVerification || siteConfig.marketing.googleSiteVerification,
+          ...(siteConfig.marketing || {}),
+          googleSiteVerification: override.googleSiteVerification || siteConfig.marketing?.googleSiteVerification,
           facebookPixel: {
             enabled: Boolean(override.facebookPixelId),
             id: override.facebookPixelId || '',
           }
         },
         analytics: {
-          ...siteConfig.analytics,
+          ...(siteConfig.analytics || {}),
           vendors: {
-            ...siteConfig.analytics.vendors,
+            ...(siteConfig.analytics?.vendors || {}),
             googleAnalytics: {
               id: override.googleAnalyticsId || '',
               enabled: Boolean(override.googleAnalyticsId),

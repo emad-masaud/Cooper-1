@@ -58,10 +58,25 @@ export const siteConfig = {
   },
   dateOptions: {
     localeMapping: {
-        'ar': 'ar-TN', // Force Maghreb Arabic date format (e.g., جانفي instead of يناير)
-        'en': 'en-GB', // Example: Force UK English date format
+        'ar': 'ar-TN',
+        'en': 'en-GB',
     }
-  }
+  },
+  seo: {
+    keywords: 'classifieds, ads, buy, sell, Saudi Arabia, إعلانات, بيع, شراء, ميمارت',
+    author: 'MeaMart',
+  },
+  marketing: {
+    googleSiteVerification: '',
+    facebookDomainVerification: '',
+    gtm: { enabled: false, id: '' },
+    facebookPixel: { enabled: false, id: '' },
+    snapchatPixel: { enabled: false, id: '' },
+    tiktokPixel: { enabled: false, id: '' },
+  },
+  features: {
+    rss: false,
+  },
 };
 
 export const NAV_LINKS = [
