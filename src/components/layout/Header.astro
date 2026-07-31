@@ -174,7 +174,7 @@ const popularLinks = await getPopularLinks(lang);
     {/* Mobile/Flyout Menu */}
     <div class="flex items-center gap-2 shrink-0">
       {
-        siteConfig.features.search && (
+        siteConfig.search?.enabled && (
           <Search
             client:load
             placeholder={t["search.placeholder"]}
@@ -335,9 +335,8 @@ const popularLinks = await getPopularLinks(lang);
         <Plus className="w-5 h-5" aria-hidden="true" />
       </a>
 
-      <!-- Logged-out State (hidden by default, shown via client-side script) -->
       {
-        siteConfig.features.auth && !url.pathname.includes('/admin') ? (
+        true && !url.pathname.includes('/admin') ? (
           <div class="items-center gap-3 hidden" id="header-login-btn">
             <a
               href={`/${lang}/login`}
