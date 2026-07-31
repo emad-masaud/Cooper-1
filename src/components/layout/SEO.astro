@@ -79,7 +79,7 @@ const { geo, twitterHandle, facebookAppId, keywords, author, googleSiteVerificat
 {author  && <meta name="author"   content={author} />}
 
 <!-- ── Geo Tags (لتحسين ظهور الموقع في البحث المحلي) ────────────────── -->
-{geo.enabled && (
+{geo?.enabled && (
   <>
     <meta name="geo.region"    content={geo.region} />
     <meta name="geo.placename" content={geo.placename} />
