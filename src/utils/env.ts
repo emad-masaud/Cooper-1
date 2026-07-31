@@ -1,8 +1,10 @@
 export function getEnv(locals: any, key: string, defaultValue: string = ''): string {
   // 1. Try Cloudflare runtime environment variables (Astro + Cloudflare)
-  if (locals?.runtime?.env && locals.runtime.env[key]) {
-    return locals.runtime.env[key];
-  }
+  try {
+    if (locals?.runtime?.env && locals.runtime.env[key]) {
+      return locals.runtime.env[key];
+    }
+  } catch (e) {}
   
   // 2. Try Node.js process.env safely (avoid ReferenceError in Cloudflare)
   if (typeof process !== 'undefined' && process.env && process.env[key]) {
