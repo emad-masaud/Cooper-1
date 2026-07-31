@@ -1,95 +1,66 @@
 ---
-import { Image } from 'astro:assets';
-import Badge from './Badge.astro';
-import { MapPin, Phone, Tag } from 'lucide-react';
-import { getLangFromUrl, useTranslations } from '~/i18n/utils';
+import { getLangFromUrl } from "@/i18n/utils";
+import { MapPin, Clock } from "lucide-react";
 
-export interface Props {
-  title: string;
-  slug: string;
-  summary?: string;
-  city?: string;
-  category?: string;
-  listing_type?: string;
-  cover_image?: string;
-  whatsapp_number?: string;
-  is_featured?: boolean;
+interface Props {
+  listing: {
+    name: string;
+    title: string;
+    price?: number;
+    city?: string;
+    cover_image?: string;
+    creation?: string;
+  };
 }
 
-const { 
-  title, 
-  slug, 
-  summary, 
-  city, 
-  category, 
-  listing_type, 
-  cover_image, 
-  whatsapp_number, 
-  is_featured 
-} = Astro.props;
-
+const { listing } = Astro.props;
 const lang = getLangFromUrl(Astro.url);
-const t = useTranslations(lang);
-const erpnextUrl = import.meta.env.ERPNEXT_URL || 'http://139.59.111.91:8080';
-const fallbackImage = 'https://placehold.co/600x400?text=No+Image';
+const url = `/${lang}/listings/${listing.name}`;
 
-const imageUrl = cover_image 
-  ? (cover_image.startsWith('http') ? cover_image : `${erpnextUrl}${cover_image}`) 
-  : fallbackImage;
+// Format date relative (e.g. 2 days ago)
+const timeAgo = listing.creation ? new Date(listing.creation).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { 
+  year: 'numeric', month: 'short', day: 'numeric' 
+}) : '';
 ---
 
-<a href={`/${lang}/listings/${slug}`} class={`group relative flex flex-col bg-background rounded-2xl border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden ${is_featured ? 'border-primary/50 shadow-primary/10 shadow-lg' : 'border-border/50'}`}>
-  {is_featured && (
-    <div class="absolute top-4 start-4 z-10">
-      <Badge variant="default" class="bg-primary text-primary-foreground font-semibold shadow-md">
-        {t['nav.featured']}
-      </Badge>
-    </div>
-  )}
-  
-  <div class="relative w-full aspect-[4/3] overflow-hidden bg-muted">
-    <img 
-      src={imageUrl} 
-      alt={title}
-      class="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-      loading="lazy"
-    />
+<a href={url} class="group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-primary-500 hover:shadow-xl transition-all duration-300">
+  <div class="relative aspect-[4/3] bg-slate-100 dark:bg-slate-900 overflow-hidden">
+    {listing.cover_image ? (
+      <img 
+        src={listing.cover_image} 
+        alt={listing.title} 
+        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        loading="lazy"
+      />
+    ) : (
+      <div class="w-full h-full flex items-center justify-center text-slate-400">
+        لا توجد صورة
+      </div>
+    )}
   </div>
-
-  <div class="flex flex-col flex-1 p-5">
-    <div class="flex items-center justify-between gap-2 mb-2">
-      {category && (
-        <span class="text-xs font-medium text-primary px-2 py-1 bg-primary/10 rounded-full">
-          {category}
-        </span>
-      )}
-      {listing_type && (
-        <span class="text-xs font-medium text-muted-foreground px-2 py-1 bg-muted rounded-full">
-          {listing_type}
-        </span>
-      )}
-    </div>
-
-    <h3 class="text-xl font-semibold mb-2 line-clamp-2 group-hover:text-primary transition-colors">
-      {title}
+  
+  <div class="p-5 flex flex-col flex-grow">
+    <h3 class="font-bold text-lg text-slate-900 dark:text-white line-clamp-2 mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+      {listing.title}
     </h3>
     
-    {summary && (
-      <p class="text-sm text-muted-foreground line-clamp-2 mb-4 flex-1">
-        {summary}
-      </p>
-    )}
-
-    <div class="flex items-center justify-between mt-auto pt-4 border-t border-border/50">
-      <div class="flex items-center text-sm text-muted-foreground">
-        <MapPin className="w-4 h-4 me-1" />
-        {city || 'Unknown Location'}
+    <div class="mt-auto pt-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-700/50">
+      <div class="font-bold text-lg text-emerald-600 dark:text-emerald-400">
+        {listing.price ? `${listing.price} ريال` : 'غير محدد'}
       </div>
-      
-      {whatsapp_number && (
-        <div class="flex items-center text-sm font-medium text-green-600 dark:text-green-400">
-          <Phone className="w-4 h-4 me-1" />
-          Contact
+    </div>
+    
+    <div class="mt-3 flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+      {listing.city && (
+        <div class="flex items-center gap-1.5">
+          <MapPin size={14} />
+          <span>{listing.city}</span>
+        </div>
+      )}
+      {timeAgo && (
+        <div class="flex items-center gap-1.5">
+          <Clock size={14} />
+          <span>{timeAgo}</span>
         </div>
       )}
     </div>
