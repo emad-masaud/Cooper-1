@@ -1,4 +1,3 @@
-import { createSupabaseServerClient, createSupabaseAdminServerClient } from './supabase';
 import { getEnv } from './env';
 
 export type MeamartSession = {
@@ -28,88 +27,8 @@ function checkIsAdmin(email: string | undefined, locals: any): boolean {
 }
 
 export async function getMeamartSession(context: any): Promise<MeamartSession | null> {
-  try {
-    const supabase = createSupabaseServerClient(context);
-    const { data: { user }, error } = await supabase.auth.getUser();
-
-    if (!error && user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      const is_admin = checkIsAdmin(user.email, context?.locals);
-
-      if (!profile) {
-        return {
-          id: user.id,
-          email: user.email,
-          is_admin,
-        };
-      }
-
-      const metadata = profile.metadata || {};
-      return {
-        id: user.id,
-        email: user.email,
-        name: profile.name || profile.first_name || '',
-        phone: profile.phone || '',
-        avatar: profile.avatar || metadata.seller_avatar || '',
-        banner: profile.banner || metadata.seller_banner || '',
-        gender: profile.gender || '',
-        username: profile.username || '',
-        instagram: profile.instagram || metadata.seller_instagram || '',
-        facebook: profile.facebook || metadata.seller_facebook || '',
-        telegram: profile.telegram || metadata.seller_telegram || '',
-        website: profile.website || metadata.seller_website || '',
-        gmaps: profile.gmaps || metadata.seller_gmaps || '',
-        is_admin,
-      };
-    }
-
-    // Fallback: Check meamart_session cookie
-    const sessionCookie = context?.cookies?.get?.('meamart_session')?.value;
-    if (sessionCookie) {
-      const decoded = sessionCookie.startsWith('%') ? decodeURIComponent(sessionCookie) : sessionCookie;
-      const parsed = JSON.parse(decoded);
-      if (parsed && (parsed.email || parsed.id)) {
-        let profileData: any = null;
-        if (parsed.id) {
-          const adminClient = createSupabaseAdminServerClient(context);
-          const { data } = await adminClient
-            .from('profiles')
-            .select('*')
-            .eq('id', parsed.id)
-            .maybeSingle();
-          profileData = data;
-        }
-        const metadata = profileData?.metadata || {};
-        const email = profileData?.email || parsed.email || '';
-        return {
-          id: parsed.id || '',
-          email,
-          name: profileData?.name || parsed.name || '',
-          phone: profileData?.phone || parsed.phone || '',
-          avatar: profileData?.avatar || metadata.seller_avatar || parsed.avatar || '',
-          banner: profileData?.banner || metadata.seller_banner || '',
-          gender: profileData?.gender || '',
-          username: profileData?.username || parsed.username || '',
-          instagram: profileData?.instagram || metadata.seller_instagram || '',
-          facebook: profileData?.facebook || metadata.seller_facebook || '',
-          telegram: profileData?.telegram || metadata.seller_telegram || '',
-          website: profileData?.website || metadata.seller_website || '',
-          gmaps: profileData?.gmaps || metadata.seller_gmaps || '',
-          is_admin: Boolean(parsed.is_admin) || checkIsAdmin(email, context?.locals),
-        };
-      }
-    }
-
-    return null;
-  } catch (err) {
-    console.error('getMeamartSession Error:', err);
-    return null;
-  }
+  // Authentication is disabled for Phase 1.
+  return null;
 }
 
 export async function parseAdminSession(cookies: any, locals?: any): Promise<MeamartSession | null> {

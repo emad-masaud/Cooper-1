@@ -27,6 +27,7 @@ interface Props {
 let { ads = [], lang = 'en' } = Astro.props as Props;
 
 if (ads.length === 0) {
+  try {
     const { erpnext } = await import('~/lib/erpnext/client');
 
     const res = await erpnext.getListings({ limit: 6 });

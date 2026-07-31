@@ -16,9 +16,9 @@ export class ERPNextClient {
 
   constructor(config?: Partial<ERPNextConfig>) {
     this.config = {
-      baseUrl: import.meta.env.ERPNEXT_URL || 'http://139.59.111.91:8080',
-      apiKey: import.meta.env.ERPNEXT_API_KEY,
-      apiSecret: import.meta.env.ERPNEXT_API_SECRET,
+      baseUrl: import.meta.env.PUBLIC_ERPNEXT_URL || 'http://139.59.111.91:8080',
+      apiKey: import.meta.env.PUBLIC_ERPNEXT_API_KEY,
+      apiSecret: import.meta.env.PUBLIC_ERPNEXT_API_SECRET,
       ...config,
     };
   }

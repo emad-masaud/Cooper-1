@@ -22,3 +22,11 @@ export const supabaseAdminClient = {
 };
 
 export const supabase = supabaseAdminClient;
+
+export function createSupabaseServerClient(context: any) {
+  return supabaseAdminClient;
+}
+
+export function createSupabaseAdminServerClient(context: any) {
+  return supabaseAdminClient;
+}

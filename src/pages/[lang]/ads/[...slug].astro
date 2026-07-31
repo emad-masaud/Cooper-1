@@ -227,15 +227,8 @@ let comments: any[] = [];
 try {
   // TODO: Fetch from Frappe later
 } catch (e) {
-  comments = (commentRows || []).map((c: any) => ({
-    authorName: c.author_name || 'Guest',
-    date: c.created_at ? new Date(c.created_at).toLocaleDateString(isAr ? 'ar-SA' : 'en-US') : '',
-    content: c.content || ''
-  }));
-} catch (e) {
-  console.error('Failed to load ad comments from Supabase:', e);
+  console.error('Failed to load ad comments:', e);
 }
-
 // QR Code setup for redirect and tracking
 const adQrId = `ad-${ad.id}`;
 const adTrackingUrl = `${Astro.url.origin}/r/${adQrId}`;
