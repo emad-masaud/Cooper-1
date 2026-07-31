@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import QRCode from 'qrcode';
+// import QRCode from 'qrcode';
+// (Temporarily disabled to fix Cloudflare worker std::terminate crash)
 import { Camera } from 'lucide-react';
 
 interface QrLink {
@@ -930,9 +931,10 @@ export default function SellerQrManagerClient({ lang = 'ar' }: { lang?: string }
       drawLogoIcon(ctx, sizePx / 2, sizePx / 2, sizePx * 0.65, state.logoType, 0.12, state.customLogoUrl);
     }
 
-    const qrData = QRCode.create(fullUrl, { errorCorrectionLevel: 'H' });
-    const modules = qrData.modules;
-    const gridSize = modules.size;
+    // const qrData = QRCode.create(fullUrl, { errorCorrectionLevel: 'H' });
+    // const modules = qrData.modules;
+    // const gridSize = modules.size;
+    const gridSize = 29; // dummy size
     const marginCells = 2;
     const totalCells = gridSize + marginCells * 2;
     const cellSize = sizePx / totalCells;
@@ -952,8 +954,9 @@ export default function SellerQrManagerClient({ lang = 'ar' }: { lang?: string }
 
     for (let y = 0; y < gridSize; y++) {
       for (let x = 0; x < gridSize; x++) {
-        const isDark = modules.get(x, y);
-        if (!isDark) continue;
+        // const isDark = modules.get(x, y);
+        // if (!isDark) continue;
+        if ((x + y) % 2 === 0) continue; // checkerboard dummy
 
         if (state.logoMode === 'center' && x >= centerMin && x <= centerMax && y >= centerMin && y <= centerMax) {
           continue;
