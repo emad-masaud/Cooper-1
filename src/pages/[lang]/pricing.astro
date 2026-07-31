@@ -1,139 +1,269 @@
 ---
-export const prerender = true;
-import Layout from '~/layouts/Layout.astro';
-import PageHeader from '~/components/layout/PageHeader.astro';
-import Schema from '~/components/layout/Schema.astro';
-import PricingTable from '~/components/sections/PricingTable.astro';
-import PricingPlan from '~/components/sections/PricingPlan.astro';
-import FAQ from '~/components/sections/FAQ.astro';
-import ComparisonTable from '~/components/sections/ComparisonTable.astro';
-import { languages } from '~/i18n/ui';
-import { useTranslations } from '~/i18n/utils';
-import Container from '~/components/ui/Container.astro';
+import Layout from "~/layouts/Layout.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import Schema from "~/components/layout/Schema.astro";
+import FAQ from "~/components/sections/FAQ.astro";
+import Container from "~/components/ui/Container.astro";
+import { Check, X, ShieldAlert, Sparkles, Zap, Award } from "lucide-react";
+import { languages, defaultLang } from "~/i18n/ui";
+import { getLangFromUrl, useTranslations } from "~/i18n/utils";
+import { siteConfig } from "~/site.config";
 
-export async function getStaticPaths() {
-  return Object.keys(languages).map((lang) => ({ params: { lang } }));
-}
+export const prerender = false;
 
-const { lang } = Astro.params;
+const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
+const isAr = lang === "ar";
 
-const plans = [
-  {
-    name: t['pricing.starter.name'],
-    price: 0,
-    displayPrice: '$0',
-    description: t['pricing.starter.desc'],
-    features: [t['pricing.feat.projects.limited'], t['pricing.feat.support.community'], t['pricing.feat.analytics.basic'], t['pricing.feat.response.48h']],
-    cta: t['pricing.cta.start'],
-  },
-  {
-    name: t['pricing.pro.name'],
-    price: 29,
-    displayPrice: '$29',
-    description: t['pricing.pro.desc'],
-    features: [t['pricing.feat.projects.unlimited'], t['pricing.feat.support.priority'], t['pricing.feat.analytics.advanced'], t['pricing.feat.response.24h'], t['pricing.feat.domain.custom']],
-    cta: t['pricing.cta.start'],
-    popular: true,
-  },
-  {
-    name: t['pricing.enterprise.name'],
-    price: 99,
-    displayPrice: '$99',
-    description: t['pricing.enterprise.desc'],
-    features: [t['pricing.feat.projects.unlimited'], t['pricing.feat.support.dedicated'], t['pricing.feat.integrations.custom'], t['pricing.feat.sla'], t['pricing.feat.sso']],
-    cta: t['pricing.cta.contact'],
-  },
-];
+const langValue = <T,>(arValue: T, enValue: T): T => {
+  if (isAr) return arValue;
+  return enValue;
+};
+
+type PricingPlan = {
+  key: string;
+  nameAr: string;
+  nameEn: string;
+  priceAr: string;
+  priceEn: string;
+  periodAr: string;
+  periodEn: string;
+  descAr: string;
+  descEn: string;
+  featuresAr: string[];
+  featuresEn: string[];
+  ctaAr: string;
+  ctaEn: string;
+  ctaLink: string;
+  popular: boolean;
+};
+
+// جلب إعدادات الأسعار من التكوين المركزي
+const pricingConfig = siteConfig.pricing;
+const plans = pricingConfig.plans as PricingPlan[];
+const comparison = pricingConfig.comparison;
+const localizedPlans = plans.map((plan) => ({
+  ...plan,
+  localizedName: isAr ? plan.nameAr : plan.nameEn,
+  localizedPrice: isAr ? plan.priceAr : plan.priceEn,
+  localizedPeriod: isAr ? plan.periodAr : plan.periodEn,
+  localizedDesc: isAr ? plan.descAr : plan.descEn,
+  localizedFeatures: (isAr ? plan.featuresAr : plan.featuresEn) as string[],
+  localizedCta: isAr ? plan.ctaAr : plan.ctaEn,
+  targetLink: plan.ctaLink.startsWith("http")
+    ? plan.ctaLink
+    : `/${lang}${plan.ctaLink}`,
+}));
+
+// الحصول على العناوين والوصف الفرعي
+const title = t["pricing.title"];
+const subtitle = t["pricing.subtitle"];
 
 const faqs = [
-  { question: t['faq.pricing.1.q'], answer: t['faq.pricing.1.a'] },
-  { question: t['faq.pricing.2.q'], answer: t['faq.pricing.2.a'] },
-  { question: t['faq.pricing.3.q'], answer: t['faq.pricing.3.a'] },
-  { question: t['faq.pricing.4.q'], answer: t['faq.pricing.4.a'] },
+  {
+    question: t["faq.pricing.promote.q"],
+    answer: t["faq.pricing.promote.a"],
+  },
+  {
+    question: t["faq.pricing.commissions.q"],
+    answer: t["faq.pricing.commissions.a"],
+  },
+  {
+    question: t["faq.pricing.payments.q"],
+    answer: t["faq.pricing.payments.a"],
+  },
+  {
+    question: t["faq.pricing.edit.q"],
+    answer: t["faq.pricing.edit.a"],
+  },
 ];
-
 ---
 
-<Layout title="Pricing - Astro Boilerplate" description="Simple, transparent pricing for everyone.">
-  
-  <Schema item={{
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "Cooper",
-    "applicationCategory": "DeveloperApplication",
-    "operatingSystem": "Web",
-    "offers": plans.map(plan => ({
-      "@type": "Offer",
-      "name": plan.name,
-      "price": String(plan.price),
-      "priceCurrency": "USD",
-      "description": plan.description,
-      "url": `${Astro.site}${lang}/pricing`,
-      ...(plan.price > 0 && {
-        "priceSpecification": {
-          "@type": "UnitPriceSpecification",
-          "price": String(plan.price),
-          "priceCurrency": "USD",
-          "billingDuration": "P1M"
-        }
-      })
-    }))
-  }} />
-
-  
-  <PageHeader 
-      title={t['pricing.title']}
-      description={t['pricing.subtitle']}
+<Layout title={t["pricing.seo.title"]} description={subtitle}>
+  <Schema
+    item={{
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: title,
+      description: subtitle,
+      url: Astro.url.href,
+    }}
   />
 
-  <Container as="section" class="pb-24">
-      <PricingTable>
-        {plans.map(plan => (
-          <PricingPlan
-            name={plan.name}
-            price={plan.displayPrice}
-            description={plan.description}
-            features={plan.features}
-            cta={plan.cta}
-            popular={plan.popular}
-          />
-        ))}
-      </PricingTable>
+  <PageHeader title={title} description={subtitle} />
 
-      <div class="mt-24">
-        <ComparisonTable 
-          title={t['compare.title']}
-          subtitle={t['compare.subtitle']}
-          labels={{ features: t['compare.labels.features'], popular: t['compare.labels.popular'] }}
-          plans={plans.map(plan => ({
-            name: plan.name,
-            key: plan.name.toLowerCase(),
-            ...(plan.popular && { popular: true })
-          }))}
-          features={[
-            { category: t['compare.cat.core'], items: [
-                { name: t['compare.row.projects'], starter: t['compare.val.3'], pro: t['compare.val.unlimited'], enterprise: t['compare.val.unlimited'] },
-                { name: t['compare.row.users'], starter: t['compare.val.1'], pro: t['compare.val.5'], enterprise: t['compare.val.unlimited'] },
-                { name: t['compare.row.storage'], starter: t['compare.val.1gb'], pro: t['compare.val.10gb'], enterprise: t['compare.val.unlimited'] },
-            ]},
-            { category: t['compare.cat.analytics'], items: [
-                { name: t['compare.row.basic_analytics'], starter: true, pro: true, enterprise: true },
-                { name: t['compare.row.advanced_reports'], starter: false, pro: true, enterprise: true },
-                { name: t['compare.row.custom_dashboards'], starter: false, pro: true, enterprise: true },
-                { name: t['compare.row.audit_logs'], starter: false, pro: false, enterprise: true },
-            ]},
-            { category: t['compare.cat.support'], items: [
-                { name: t['compare.row.email_support'], starter: t['compare.val.standard'], pro: t['compare.val.priority'], enterprise: t['compare.val.dedicated'] },
-                { name: t['compare.row.sso'], starter: false, pro: false, enterprise: true },
-                { name: t['compare.row.sla'], starter: false, pro: false, enterprise: t['compare.val.99_99'] },
-            ]}
-          ]}
-        />
+  <Container as="section" class="pb-24">
+    {/* بطاقات الأسعار المصممة بأسلوب Premium */}
+    <div class="grid grid-cols-1 gap-8 md:grid-cols-3 items-stretch mt-12">
+      {
+        localizedPlans.map((plan) => (
+          <div
+            class={`relative flex flex-col justify-between overflow-hidden rounded-3xl border p-8 shadow-xs backdrop-blur-md transition-all duration-300 hover:-translate-y-1 ${
+              plan.popular
+                ? "border-primary bg-primary/3 dark:bg-primary/5 shadow-md dark:shadow-2xl ring-2 ring-primary/20"
+                : "border-zinc-200/50 bg-white/40 dark:border-zinc-700 dark:bg-zinc-900/40"
+            }`}
+          >
+            {plan.popular && (
+              <div class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                <Sparkles className="w-3.5 h-3.5" />
+                {t["gen.lt.pricing.1"]}
+              </div>
+            )}
+
+            <div>
+              <div class="flex items-center gap-3">
+                <div
+                  class={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                    plan.key === "gold"
+                      ? "bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400"
+                      : plan.key === "silver"
+                        ? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                        : "bg-primary/10 text-primary dark:bg-primary/20"
+                  }`}
+                >
+                  {plan.key === "gold" ? (
+                    <Award className="w-5.5 h-5.5" />
+                  ) : plan.key === "silver" ? (
+                    <Zap className="w-5.5 h-5.5" />
+                  ) : (
+                    <Check className="w-5.5 h-5.5" />
+                  )}
+                </div>
+                <h3 class="font-display text-xl font-bold text-zinc-900 dark:text-white">
+                  {plan.localizedName}
+                </h3>
+              </div>
+
+              <p class="mt-4 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                {plan.localizedDesc}
+              </p>
+
+              <div class="mt-6 flex items-baseline gap-2">
+                <span class="font-display text-4xl font-extrabold text-zinc-900 dark:text-white">
+                  {plan.localizedPrice}
+                </span>
+                <span class="text-xs text-zinc-400 dark:text-zinc-500">
+                  / {plan.localizedPeriod}
+                </span>
+              </div>
+
+              <div class="mt-8 border-t border-zinc-200/40 dark:border-zinc-800/40 pt-8 space-y-4">
+                {plan.localizedFeatures.map((feature: string) => (
+                  <div class="flex items-start gap-3">
+                    <Check className="h-4.5 w-4.5 text-emerald-500 shrink-0 mt-0.5" />
+                    <span class="text-xs text-zinc-600 dark:text-zinc-300 leading-normal">
+                      {feature}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div class="mt-8 pt-6">
+              <a
+                href={plan.targetLink}
+                class={`block w-full text-center rounded-full py-3 px-4 text-xs font-bold transition-all shadow-sm active:scale-98 ${
+                  plan.popular
+                    ? "bg-primary hover:bg-primary/95 text-white"
+                    : "bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-750"
+                }`}
+              >
+                {plan.localizedCta}
+              </a>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+
+    {/* جدول مقارنة الميزات بالتفصيل */}
+    <div class="mt-24">
+      <div class="text-center max-w-2xl mx-auto mb-12">
+        <h2
+          class="font-display text-2xl md:text-3xl font-extrabold text-zinc-900 dark:text-white"
+        >
+          {isAr ? comparison.titleAr : comparison.titleEn}
+        </h2>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+          {isAr ? comparison.subtitleAr : comparison.subtitleEn}
+        </p>
       </div>
-      
-      <div class="mt-20">
-          <FAQ items={faqs} />
+
+      <div
+        class="overflow-x-auto rounded-3xl border border-zinc-200/50 bg-white/40 shadow-xs backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/40"
+      >
+        <table class="w-full min-w-150 border-collapse text-right">
+          <thead>
+            <tr class="border-b border-zinc-200/50 dark:border-zinc-700">
+              <th
+                class="p-6 text-xs font-bold text-zinc-500 dark:text-zinc-400"
+              >
+                {t["gen.lt.pricing.2"]}
+              </th>
+              {
+                plans.map((p) => (
+                  <th class="p-6 text-xs font-bold text-zinc-950 dark:text-white text-center w-1/4">
+                    {isAr ? p.nameAr : p.nameEn}
+                  </th>
+                ))
+              }
+            </tr>
+          </thead>
+          <tbody>
+            {
+              comparison.categories.map((cat) => {
+                const catName = isAr ? cat.nameAr : cat.nameEn;
+                return (
+                  <>
+                    <tr class="bg-zinc-50/50 dark:bg-zinc-950/20">
+                      <td
+                        colspan="4"
+                        class="p-4 px-6 text-xs font-bold text-primary dark:text-primary-foreground"
+                      >
+                        {catName}
+                      </td>
+                    </tr>
+                    {cat.features.map((feat) => {
+                      const featName = isAr ? feat.nameAr : feat.nameEn;
+                      return (
+                        <tr class="border-b border-zinc-200/30 dark:border-zinc-700/50 hover:bg-zinc-50/10 transition-colors">
+                          <td class="p-6 text-xs text-zinc-700 dark:text-zinc-300">
+                            {featName}
+                          </td>
+                          {["free", "silver", "gold"].map((key) => {
+                            const val = feat[key as keyof typeof feat];
+                            return (
+                              <td class="p-6 text-center text-xs">
+                                {typeof val === "boolean" ? (
+                                  val ? (
+                                    <Check className="h-4.5 w-4.5 text-emerald-500 mx-auto" />
+                                  ) : (
+                                    <X className="h-4.5 w-4.5 text-zinc-300 dark:text-zinc-700 mx-auto" />
+                                  )
+                                ) : (
+                                  <span class="font-semibold text-zinc-800 dark:text-zinc-200">
+                                    {val}
+                                  </span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </>
+                );
+              })
+            }
+          </tbody>
+        </table>
       </div>
+    </div>
+
+    {/* قسم الأسئلة الشائعة */}
+    <div class="mt-24">
+      <FAQ items={faqs} />
+    </div>
   </Container>
 </Layout>

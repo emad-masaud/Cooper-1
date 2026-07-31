@@ -1,0 +1,414 @@
+---
+import Button from "~/components/ui/Button.astro";
+import {
+  ShoppingBag,
+  Edit,
+  Trash2,
+  CheckCircle,
+  Package,
+  PlusCircle,
+  X,
+} from "lucide-react";
+import { useTranslations } from "~/i18n/utils";
+
+const { lang, rtl, sellerProducts = [] } = Astro.props;
+const isAr = lang === "ar";
+const t = useTranslations(lang);
+---
+
+<div class="space-y-6">
+  <div
+    class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-200/60 pb-4 dark:border-zinc-800/60"
+  >
+    <h2
+      class="flex items-center gap-2 text-xl font-bold text-zinc-900 dark:text-zinc-50"
+    >
+      <ShoppingBag class="h-5 w-5 text-primary" />
+      <span>{t["seller.products.title"]}</span>
+    </h2>
+
+    <button
+      type="button"
+      id="btn-add-product"
+      class="flex items-center gap-1.5 rounded-full bg-primary text-white shadow-sm px-5 py-2 text-xs font-bold transition hover:bg-primary/90"
+    >
+      <PlusCircle class="h-4 w-4" />
+      <span>{t["seller.products.addNew"]}</span>
+    </button>
+  </div>
+
+  {
+    sellerProducts.length === 0 ? (
+      <div class="rounded-3xl border border-dashed border-zinc-200 bg-zinc-50 py-20 text-center dark:border-zinc-800 dark:bg-zinc-900/20 mb-8">
+        <div class="flex justify-center mb-4">
+          <Package class="h-12 w-12 text-zinc-400" />
+        </div>
+        <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-50">
+          {t["seller.products.empty.title"]}
+        </h3>
+        <p class="mt-2 text-sm text-zinc-500">
+          {t["seller.products.empty.desc"]}
+        </p>
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {sellerProducts.map((p: any) => (
+          <div
+            class="product-card relative flex flex-col gap-4 overflow-hidden rounded-3xl border border-zinc-200/50 bg-white/40 p-4 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 sm:flex-row"
+            id={`product-card-${p.id}`}
+          >
+            <div class="Verifyh-24 w-full shrink-0 overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-800 sm:w-32">
+              {p.images?.[0]?.src ? (
+                <img
+                  src={p.images[0].src}
+                  alt={p.name}
+                  class="h-full w-full object-cover"
+                />
+              ) : (
+                <div class="flex h-full w-full items-center justify-center bg-zinc-200 dark:bg-zinc-750">
+                  <Package class="h-8 w-8 text-zinc-400" />
+                </div>
+              )}
+            </div>
+
+            <div class="flex flex-1 flex-col justify-between space-y-3 py-1">
+              <div class="space-y-1">
+                <span class="inline-flex items-center gap-1 rounded-full bg-zinc-50 px-2 py-0.5 text-[10px] font-bold text-zinc-500 dark:bg-zinc-800/50 dark:text-zinc-400">
+                  SKU: {p.sku}
+                </span>
+                <h3 class="line-clamp-1 text-base font-bold text-zinc-900 dark:text-zinc-50">
+                  <a
+                    href={`/${lang}/catalog/${p.id}`}
+                    class="transition hover:text-primary"
+                  >
+                    {p.name}
+                  </a>
+                </h3>
+                <p class="text-sm font-extrabold text-primary">
+                  {p.price} {t["seller.products.currency"]}
+                </p>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  class="edit-product-btn flex items-center gap-1 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-850"
+                  data-id={p.id}
+                  data-name={p.name}
+                  data-sku={p.sku}
+                  data-price={p.price}
+                  data-description={p.description}
+                  data-short={p.short_description}
+                >
+                  <Edit class="h-3.5 w-3.5" />
+                  <span>{t["seller.products.actions.edit"]}</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="delete-product-btn flex items-center gap-1 rounded-xl border border-red-100 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 dark:border-red-950/20 dark:hover:bg-red-950/30"
+                  data-id={p.id}
+                >
+                  <Trash2 class="h-3.5 w-3.5" />
+                  <span>{t["seller.products.actions.delete"]}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+</div>
+
+<!-- Modal container for Product Add/Edit -->
+<div
+  id="product-modal"
+  class="fixed inset-0 z-50 flex items-center justify-center hidden bg-black/60 backdrop-blur-xs p-4"
+>
+  <div
+    class="relative w-full max-w-lg rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+  >
+    <button
+      type="button"
+      id="close-modal-btn"
+      class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+    >
+      <X class="h-5 w-5" />
+    </button>
+
+    <h3
+      id="modal-title"
+      class="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-6"
+    >
+      {t["seller.products.modal.addTitle"]}
+    </h3>
+
+    <form id="product-form" class="space-y-4">
+      <input type="hidden" name="productId" id="input-product-id" />
+
+      <div>
+        <label
+          class="block text-xs font-bold text-zinc-650 dark:text-zinc-400 mb-2"
+        >
+          {t["seller.products.form.name"]}
+        </label>
+        <input
+          type="text"
+          name="name"
+          required
+          class="w-full rounded-full border border-zinc-200 bg-white/80 py-3 px-4 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 outline-hidden focus:border-primary focus:ring-1 focus:ring-primary"
+        />
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label
+            class="block text-xs font-bold text-zinc-650 dark:text-zinc-400 mb-2"
+          >
+            {t["seller.products.form.sku"]}
+          </label>
+          <input
+            type="text"
+            name="sku"
+            required
+            class="w-full rounded-full border border-zinc-200 bg-white/80 py-3 px-4 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 outline-hidden focus:border-primary focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <div>
+          <label
+            class="block text-xs font-bold text-zinc-650 dark:text-zinc-400 mb-2"
+          >
+            {t["seller.products.form.price"]}
+          </label>
+          <input
+            type="number"
+            name="regular_price"
+            required
+            min="0"
+            step="0.01"
+            class="w-full rounded-full border border-zinc-200 bg-white/80 py-3 px-4 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 outline-hidden focus:border-primary focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label
+          class="block text-xs font-bold text-zinc-650 dark:text-zinc-400 mb-2"
+        >
+          {t["seller.products.form.shortDescription"]}
+        </label>
+        <input
+          type="text"
+          name="short_description"
+          class="w-full rounded-full border border-zinc-200 bg-white/80 py-3 px-4 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 outline-hidden focus:border-primary focus:ring-1 focus:ring-primary"
+        />
+      </div>
+
+      <div>
+        <label
+          class="block text-xs font-bold text-zinc-650 dark:text-zinc-400 mb-2"
+        >
+          {t["seller.products.form.detailedDescription"]}
+        </label>
+        <textarea
+          name="description"
+          rows="3"
+          class="w-full rounded-2x1 border border-zinc-200 bg-white/80 py-3 px-4 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 outline-hidden focus:border-primary focus:ring-1 focus:ring-primary"
+        ></textarea>
+      </div>
+
+      <div id="modal-status" class="hidden p-3 rounded-xl text-xs font-bold">
+      </div>
+
+      <button
+        type="submit"
+        id="modal-submit-btn"
+        class="w-full rounded-full bg-primary py-3.5 text-sm font-bold text-white shadow-lg transition hover:scale-[1.01] active:scale-[0.99]"
+      >
+        {t["seller.products.form.save"]}
+      </button>
+    </form>
+  </div>
+</div>
+
+<div
+  id="seller-products-i18n"
+  class="hidden"
+  data-modal-add-title={t["seller.products.modal.addTitle"]}
+  data-modal-edit-title={t["seller.products.modal.editTitle"]}
+  data-save-button={t["seller.products.form.save"]}
+  data-update-button={t["seller.products.form.update"]}
+  data-saving-syncing={t["seller.products.status.savingSyncing"]}
+  data-saved-success={t["seller.products.status.savedSuccess"]}
+  data-delete-confirm={t["seller.products.delete.confirm"]}
+  data-delete-failed={t["seller.products.delete.failed"]}
+  data-save-failed={t["seller.products.status.saveFailed"]}
+>
+</div>
+
+<script>
+  const i18nEl = document.getElementById(
+    "seller-products-i18n",
+  ) as HTMLDivElement;
+  const i18n = {
+    modalAddTitle: i18nEl?.dataset.modalAddTitle || "",
+    modalEditTitle: i18nEl?.dataset.modalEditTitle || "",
+    saveButton: i18nEl?.dataset.saveButton || "",
+    updateButton: i18nEl?.dataset.updateButton || "",
+    savingSyncing: i18nEl?.dataset.savingSyncing || "",
+    savedSuccess: i18nEl?.dataset.savedSuccess || "",
+    deleteConfirm: i18nEl?.dataset.deleteConfirm || "",
+    deleteFailed: i18nEl?.dataset.deleteFailed || "",
+    saveFailed: i18nEl?.dataset.saveFailed || "",
+  };
+
+  const productModal = document.getElementById(
+    "product-modal",
+  ) as HTMLDivElement;
+  const productForm = document.getElementById(
+    "product-form",
+  ) as HTMLFormElement;
+  const modalTitle = document.getElementById(
+    "modal-title",
+  ) as HTMLHeadingElement;
+  const inputProductId = document.getElementById(
+    "input-product-id",
+  ) as HTMLInputElement;
+  const modalStatus = document.getElementById("modal-status") as HTMLDivElement;
+  const modalSubmitBtn = document.getElementById(
+    "modal-submit-btn",
+  ) as HTMLButtonElement;
+
+  // Open modal for new product
+  document.getElementById("btn-add-product")?.addEventListener("click", () => {
+    productForm.reset();
+    inputProductId.value = "";
+    modalTitle.innerText = i18n.modalAddTitle;
+    modalSubmitBtn.innerText = i18n.saveButton;
+    modalStatus.classList.add("hidden");
+    productModal.classList.remove("hidden");
+  });
+
+  // Close modal
+  document.getElementById("close-modal-btn")?.addEventListener("click", () => {
+    productModal.classList.add("hidden");
+  });
+
+  // Form submission handling
+  productForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    modalSubmitBtn.disabled = true;
+    modalStatus.classList.remove("hidden");
+    modalStatus.className =
+      "p-3 rounded-xl text-xs font-bold bg-zinc-50 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400";
+    modalStatus.innerText = i18n.savingSyncing;
+
+    const formData = new FormData(productForm);
+    const productId = inputProductId.value;
+    const isEdit = productId !== "";
+
+    const payload = {
+      productId,
+      name: formData.get("name"),
+      sku: formData.get("sku"),
+      regular_price: formData.get("regular_price"),
+      description: formData.get("description"),
+      short_description: formData.get("short_description"),
+    };
+
+    try {
+      const endpoint = isEdit ? "/api/products/edit" : "/api/products/create";
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+
+      if (result.success) {
+        modalStatus.className =
+          "p-3 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-450";
+        modalStatus.innerText = i18n.savedSuccess;
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        throw new Error(result.error || "Failed to save product");
+      }
+    } catch (err: any) {
+      modalSubmitBtn.disabled = false;
+      modalStatus.className =
+        "p-3 rounded-xl text-xs font-bold bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-450";
+      modalStatus.innerText = err.message || i18n.saveFailed;
+    }
+  });
+
+  // Edit action
+  document.querySelectorAll(".edit-product-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const button = e.currentTarget as HTMLButtonElement;
+      productForm.reset();
+
+      const id = button.getAttribute("data-id") || "";
+      inputProductId.value = id;
+
+      const nameInput = productForm.querySelector(
+        '[name="name"]',
+      ) as HTMLInputElement;
+      const skuInput = productForm.querySelector(
+        '[name="sku"]',
+      ) as HTMLInputElement;
+      const priceInput = productForm.querySelector(
+        '[name="regular_price"]',
+      ) as HTMLInputElement;
+      const shortDesc = productForm.querySelector(
+        '[name="short_description"]',
+      ) as HTMLInputElement;
+      const longDesc = productForm.querySelector(
+        '[name="description"]',
+      ) as HTMLTextAreaElement;
+
+      nameInput.value = button.getAttribute("data-name") || "";
+      skuInput.value = button.getAttribute("data-sku") || "";
+      priceInput.value = button.getAttribute("data-price") || "";
+      shortDesc.value = button.getAttribute("data-short") || "";
+      longDesc.value = button.getAttribute("data-description") || "";
+
+      modalTitle.innerText = i18n.modalEditTitle;
+      modalSubmitBtn.innerText = i18n.updateButton;
+      modalStatus.classList.add("hidden");
+      productModal.classList.remove("hidden");
+    });
+  });
+
+  // Delete action
+  document.querySelectorAll(".delete-product-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      const button = e.currentTarget as HTMLButtonElement;
+      const id = button.getAttribute("data-id");
+      const confirmMsg = i18n.deleteConfirm;
+
+      if (!confirm(confirmMsg)) return;
+
+      button.disabled = true;
+      try {
+        const res = await fetch("/api/products/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productId: id }),
+        });
+        const result = await res.json();
+
+        if (result.success) {
+          window.location.reload();
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (err: any) {
+        button.disabled = false;
+        alert(err.message || i18n.deleteFailed);
+      }
+    });
+  });
+</script>

@@ -16,7 +16,7 @@ export function parseProperties(content: string): Record<string, string> {
   return result;
 }
 
-const locales = import.meta.glob('./locales/*.properties', { query: '?raw', eager: true });
+const locales = import.meta.glob('./locales/*.properties', { query: '?raw', eager: true, import: 'default' });
 
 export const languages: Record<string, string> = {};
 export const ui: Record<string, Record<string, string>> = {};
@@ -24,7 +24,7 @@ export const ui: Record<string, Record<string, string>> = {};
 for (const path in locales) {
   const code = path.match(/\/([a-z]{2})\.properties$/)?.[1];
   if (code) {
-    const content = (locales[path] as unknown as { default: string }).default;
+    const content = locales[path] as string;
     const props = parseProperties(content);
     ui[code] = props;
     languages[code] = props['system.language_name'] || code.toUpperCase();
@@ -32,3 +32,5 @@ for (const path in locales) {
 }
 
 export const defaultLang = import.meta.env.DEFAULT_LOCALE || 'en';
+
+// Force Vite reload 1784505092962

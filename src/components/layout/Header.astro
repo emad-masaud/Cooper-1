@@ -1,158 +1,499 @@
 ---
-import BrandIcon from '~/components/common/BrandIcon.astro';
-import ThemeToggle from '~/components/common/ThemeToggle.astro';
-import MobileMenu from '~/components/islands/MobileMenu';
-import DesktopNav from '~/components/islands/DesktopNav';
-import Search from '~/components/islands/Search';
-import LanguagePicker from '~/components/common/LanguagePicker.astro';
+import {
+  Github,
+  User,
+  LogOut,
+  LayoutGrid,
+  ChevronDown,
+  Plus,
+  ShoppingBag,
+  QrCode,
+} from "lucide-react";
+import ThemeToggle from "~/components/common/ThemeToggle.astro";
+import MobileMenu from "~/components/islands/MobileMenu";
+import DesktopNav from "~/components/islands/DesktopNav";
+import LanguagePicker from "~/components/common/LanguagePicker.astro";
+import CurrencyPicker from "~/components/common/CurrencyPicker.astro";
+import { getPopularLinks } from "~/utils/popularLinks";
+import Search from "~/components/islands/Search";
+import { getCollection } from "astro:content";
+import { categoriesMap } from "~/utils/categories";
+import { resolveCity } from "~/utils/cities";
+import { NAV_LINKS, ACTION_LINKS, siteConfig } from "~/site.config";
+import { defaultLang, languages } from "~/i18n/ui";
+import { useTranslations } from "~/i18n/utils";
+import { getMeamartSession } from "~/utils/session";
+import AuthDropdown from "~/components/auth/AuthDropdown";
 
-import { NAV_LINKS, ACTION_LINKS, siteConfig } from '~/site.config';
-import { defaultLang } from '~/i18n/ui';
-import { useTranslations } from '~/i18n/utils';
+// Get session from middleware or fallback to cookie parsing
+let userSession = Astro.locals.userSession;
+if (!userSession) {
+  userSession = await getMeamartSession(Astro);
+}
 
-interface Props {
-  availableLangs?: string[];
+const url = new URL(Astro.request.url);
+if (url.pathname.includes("/seller") || url.pathname.includes("/login")) {
+  console.log("[Header] Session check:", {
+    userSession: !!userSession,
+    email: userSession?.email,
+    path: url.pathname,
+    timestamp: new Date().toISOString(),
+  });
 }
 
 const { lang = defaultLang } = Astro.params;
+const isAr = lang === "ar";
 const { availableLangs } = Astro.props;
 const t = useTranslations(lang);
 
 const translateNavLinks = (links: any[], lang: string, t: any): any[] => {
-  return links.map(link => {
-    const key = `nav.${link.label.toLowerCase().replace(/\s+/g, '.')}`;
+  return links.map((link) => {
+    const key = `nav.${link.label.toLowerCase().replace(/\s+/g, ".")}`;
     const descKey = `${key}.desc`;
-    
+
     const shouldLocalize = link.localize !== false;
-    const href = (!shouldLocalize)
-      ? link.href 
-      : `/${lang}${link.href.startsWith('/') ? '' : '/'}${link.href}`.replace(/\/$/, '') || `/${lang}`;
+    const href = !shouldLocalize
+      ? link.href
+      : `/${lang}${link.href.startsWith("/") ? "" : "/"}${link.href}`.replace(
+          /\/$/,
+          "",
+        ) || `/${lang}`;
 
     return {
       ...link,
       label: t[key as keyof typeof t],
       description: t[descKey as keyof typeof t],
       href,
-      children: link.children ? translateNavLinks(link.children, lang, t) : undefined
+      children: link.children
+        ? translateNavLinks(link.children, lang, t)
+        : undefined,
     };
   });
 };
 
 const links = translateNavLinks(NAV_LINKS, lang, t);
 
-const primaryHref = ACTION_LINKS.primary.href.startsWith('/docs')
+const primaryHref = ACTION_LINKS.primary.href.startsWith("/docs")
   ? ACTION_LINKS.primary.href
-  : `/${lang}${ACTION_LINKS.primary.href.startsWith('/') ? '' : '/'}${ACTION_LINKS.primary.href}`.replace(/\/$/, '');
+  : `/${lang}${ACTION_LINKS.primary.href.startsWith("/") ? "" : "/"}${ACTION_LINKS.primary.href}`.replace(
+      /\/$/,
+      "",
+    );
+
+const popularLinks = await getPopularLinks(lang);
 ---
 
-<header id="main-header" class="w-full transition-all duration-500 border-b border-transparent bg-transparent py-4 text-foreground">
+<header
+  class="w-full transition-all duration-300 border-b border-foreground/10 bg-background/80 backdrop-blur-md"
+>
+  {
+    userSession && !userSession.name && (
+      <div class="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-4 py-2.5 text-center text-sm font-semibold flex flex-col sm:flex-row justify-center items-center gap-2">
+        <div class="flex items-center gap-1.5">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <>
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+              <path d="M12 9v4" />
+              <path d="M12 17h.01" />
+            </>
+          </svg>
+          <span>
+            {lang === "ar"
+              ? "يرجى استكمال بيانات ملفك الشخصي لسهولة إنشاء الإعلانات."
+              : "Please complete your profile details to easily create ads."}
+          </span>
+        </div>
+        <a
+          href={`/${lang}/seller/profile`}
+          class="underline underline-offset-4 hover:text-amber-900 dark:hover:text-amber-200 font-bold"
+        >
+          {lang === "ar" ? "تحديث الآن" : "Update Now"}
+        </a>
+      </div>
+    )
+  }
   <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-    <a href={`/${lang}`} class="flex items-center gap-3 text-xl font-bold tracking-tight text-primary dark:text-white group">
-      {siteConfig.logo && (
-        siteConfig.logo.strategy === 'switch' ? (
-          <>
-            <img 
-              src={siteConfig.logo.src} 
-              alt={siteConfig.logo.alt} 
+    <a
+      href={`/${lang}`}
+      class="flex items-center gap-3 text-xl font-bold tracking-tight text-primary dark:text-white group"
+    >
+      {
+        siteConfig.logo &&
+          (siteConfig.logo.strategy === "switch" ? (
+            <>
+              <img
+                src={siteConfig.logo.src}
+                alt={siteConfig.logo.alt}
+                width="32"
+                height="32"
+                class="h-8 w-auto rounded-lg group-hover:rotate-6 transition-transform duration-300 dark:hidden block"
+              />
+              <img
+                src={siteConfig.logo.srcDark || siteConfig.logo.src}
+                alt={siteConfig.logo.alt}
+                width="32"
+                height="32"
+                class="h-8 w-auto rounded-lg group-hover:rotate-6 transition-transform duration-300 hidden dark:block"
+              />
+            </>
+          ) : (
+            <img
+              src={siteConfig.logo.src}
+              alt={siteConfig.logo.alt}
               width="32"
               height="32"
-              class="h-8 w-auto group-hover:rotate-6 transition-transform duration-300 dark:hidden block"
+              class={`h-8 w-auto rounded-lg group-hover:rotate-6 transition-transform duration-300 ${
+                siteConfig.logo.strategy === "invert" ? "dark:invert" : ""
+              }`}
             />
-            <img 
-              src={siteConfig.logo.srcDark || siteConfig.logo.src} 
-              alt={siteConfig.logo.alt} 
-              width="32"
-              height="32"
-              class="h-8 w-auto group-hover:rotate-6 transition-transform duration-300 hidden dark:block"
-            />
-          </>
-        ) : (
-          <img 
-            src={siteConfig.logo.src} 
-            alt={siteConfig.logo.alt} 
-            width="32"
-            height="32"
-            class={`h-8 w-auto group-hover:rotate-6 transition-transform duration-300 ${
-              siteConfig.logo.strategy === 'invert' ? 'dark:invert' : ''
-            }`}
-          />
-        )
-      )}
-      <span class="md:hidden lg:inline">{t['brand.name'] || siteConfig.name}</span>
+          ))
+      }
+      <span class="hidden md:inline font-bold"
+        >{t["brand.name"] || siteConfig.name}</span
+      >
+      <span
+        class="hidden lg:inline text-xs text-muted-foreground/80 border-l border-foreground/10 pl-3 ml-3 rtl:border-r rtl:border-l-0 rtl:pr-3 rtl:mr-3 font-normal"
+      >
+        {lang === "ar" ? "طلباتك أوامر" : "Your Wishes Are Commands"}
+      </span>
     </a>
-    
-    <nav class="hidden md:flex items-center gap-8">
-      <a href={`/${lang}/listings`} class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-        {t['nav.browse']}
-      </a>
-      <a href={`/${lang}/post`} class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-        {t['nav.post_ad']}
-      </a>
-      <a href={`/${lang}/auth/login`} class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-        {t['nav.login']}
-      </a>
-    </nav>
+    <div class="flex-1 flex justify-center mx-4 lg:mx-8">
+      <DesktopNav client:idle links={links} currentPath={Astro.url.pathname} />
+    </div>
 
     {/* Mobile/Flyout Menu */}
-    <div class="flex items-center gap-4 shrink-0">
-      {siteConfig.search.enabled && <Search 
-        client:only="react" 
-        placeholder={t['search.placeholder']} 
-        lang={lang}
-      />}
+    <div class="flex items-center gap-2 shrink-0">
+      {
+        siteConfig.features.search && (
+          <Search
+            client:load
+            placeholder={t["search.placeholder"]}
+            devModalLabels={{
+              title: t["dev.search.title"],
+              description: t["dev.search.description"],
+              gotIt: t["dev.search.button.gotIt"],
+              doc: t["dev.search.button.docs"],
+            }}
+            lang={lang}
+            popularLinks={popularLinks}
+          />
+        )
+      }
       <LanguagePicker availableLangs={availableLangs} />
-      <ThemeToggle />
-      <a 
-        href={ACTION_LINKS.social.github}
-        target="_blank" 
-        rel="noopener noreferrer"
-        class="text-foreground hover:text-foreground/70 dark:text-white dark:hover:text-blue-300 transition-colors hidden md:block"
-        aria-label="GitHub"
+      <CurrencyPicker />
+      <div class="hidden md:flex items-center gap-2 shrink-0">
+        <ThemeToggle />
+      </div>
+
+      <!-- Logged-in State (hidden by default, shown via client-side script) -->
+      <div
+        class="relative ltr:text-left rtl:text-right hidden"
+        id="header-user-dropdown"
       >
-        <BrandIcon icon="github" className="w-5 h-5" />
-      </a>
-      <a 
+        <button
+          type="button"
+          class="flex items-center gap-2 focus:outline-hidden group"
+          id="user-dropdown-btn"
+          aria-expanded="false"
+          aria-haspopup="true"
+        >
+          <div
+            class="h-10 w-10 rounded-full bg-primary/10 border border-zinc-200 text-primary flex items-center justify-center font-bold text-sm overflow-hidden shadow-xs hover:border-primary/30 transition-all dark:border-zinc-800"
+            id="header-avatar-container"
+          >
+            <span id="header-avatar-initials">U</span>
+            <img
+              id="header-avatar-img"
+              src=""
+              alt="user avatar"
+              width="40"
+              height="40"
+              class="h-full w-full object-cover hidden"
+            />
+          </div>
+          <ChevronDown
+            className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors"
+          />
+        </button>
+
+        <div
+          class="absolute ltr:right-0 rtl:left-0 ltr:origin-top-right rtl:origin-top-left z-50 mt-2 w-56 rounded-xl border border-zinc-200/50 bg-white/95 p-2 shadow-xl backdrop-blur-md focus:outline-hidden dark:border-zinc-800/50 dark:bg-zinc-900/95 hidden transition-all duration-200 transform scale-95 opacity-0"
+          id="header-user-dropdown-menu"
+          role="menu"
+          aria-orientation="vertical"
+          aria-labelledby="user-dropdown-btn"
+        >
+          <div
+            class="px-3 py-2.5 border-b border-zinc-100 dark:border-zinc-800/60 mb-1.5"
+          >
+            <p class="text-xs font-semibold text-zinc-400">
+              {t["user.welcome"]}
+            </p>
+            <p
+              class="text-sm font-bold text-zinc-800 dark:text-zinc-200 truncate"
+              id="header-user-name"
+            >
+              User
+            </p>
+          </div>
+
+          <a
+            href={`/${lang}/seller/dashboard`}
+            class="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/50 transition-colors"
+            role="menuitem"
+          >
+            <LayoutGrid className="w-4 h-4 text-primary" />
+            <span>{t["user.myAds"]}</span>
+          </a>
+
+          <a
+            href={`/${lang}/seller/products`}
+            class="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/50 transition-colors"
+            role="menuitem"
+          >
+            <ShoppingBag className="w-4 h-4 text-primary" />
+            <span>{t["user.myProducts"]}</span>
+          </a>
+
+          <a
+            href={`/${lang}/seller/addresses`}
+            class="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/50 transition-colors"
+            role="menuitem"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="lucide lucide-map-pin w-4 h-4 text-primary"
+              ><path
+                d="M20 10c0 4.993-5.539 10.193-7.399 11.74a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z"
+              ></path><circle cx="12" cy="10" r="3"></circle></svg
+            >
+            <span>{t["user.myAddresses"]}</span>
+          </a>
+
+          <a
+            href={`/${lang}/seller/qr-manager`}
+            class="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/50 transition-colors"
+            role="menuitem"
+          >
+            <QrCode className="w-4 h-4 text-primary" />
+            <span
+              >{
+                t["seller.subnav.qr"] ||
+                  (lang === "ar" ? "الباركود والرابط الموحد" : "QR & Bio Link")
+              }</span
+            >
+          </a>
+
+          <a
+            href={`/${lang}/seller/profile`}
+            class="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/50 transition-colors"
+            role="menuitem"
+          >
+            <User className="w-4 h-4 text-primary" />
+            <span>{t["user.profile"]}</span>
+          </a>
+
+          <div class="border-t border-zinc-100 dark:border-zinc-800/60 my-1.5">
+          </div>
+
+          <a
+            href="/api/auth/logout"
+            class="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20 transition-colors"
+            role="menuitem"
+            id="header-logout-link"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>{t["user.signOut"]}</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Primary Action Button (Create Ad) -->
+      <a
         href={primaryHref}
-        class="hidden md:block px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-all"
+        class="hidden md:inline-flex items-center justify-center rounded-full bg-primary text-white p-2.5 hover:bg-primary/90 transition-all shadow-xs rtl:ml-2 ltr:mr-2"
+        aria-label={t["hero.getStarted"] || ACTION_LINKS.primary.label}
       >
-        {t['hero.getStarted'] || ACTION_LINKS.primary.label}
+        <Plus className="w-5 h-5" aria-hidden="true" />
       </a>
-      
+
+      <!-- Logged-out State (hidden by default, shown via client-side script) -->
+      {
+        siteConfig.features.auth && !url.pathname.includes('/admin') ? (
+          <div class="items-center gap-3 hidden" id="header-login-btn">
+            <a
+              href={`/${lang}/login`}
+              class="text-sm font-bold text-zinc-700 hover:text-primary dark:text-zinc-300 dark:hover:text-white transition-colors"
+            >
+              {t["login.tab.signin"]}
+            </a>
+          </div>
+        ) : null
+      }
+
+
       <div class="md:hidden">
-        <MobileMenu 
-          client:only="react" 
-          links={links} 
-          currentPath={Astro.url.pathname} 
+        <MobileMenu
+          client:idle
+          links={links}
+          currentPath={Astro.url.pathname}
           labels={{
-            menu: t['nav.menu'],
-            getStarted: t['hero.getStarted'] || ACTION_LINKS.primary.label
+            menu: t["nav.menu"],
+            getStarted: t["hero.getStarted"] || ACTION_LINKS.primary.label,
           }}
-        />
+          userSession={userSession}
+          lang={lang}
+          availableLangs={availableLangs && availableLangs.length > 1
+            ? availableLangs
+            : Object.keys(languages)}
+        >
+          <div class="flex items-center justify-center gap-8 mt-2">
+            <LanguagePicker availableLangs={availableLangs} />
+            <ThemeToggle />
+          </div>
+        </MobileMenu>
       </div>
     </div>
   </div>
 </header>
 
 <script>
-  function initHeader() {
-    const header = document.getElementById('main-header');
-    if (!header) return;
+  function updateHeaderAuthUI() {
+    const sessionStr = localStorage.getItem("meamart_session_active");
+    const dropdown = document.getElementById("header-user-dropdown");
+    const loginBtn = document.getElementById("header-login-btn");
+    const lang = window.location.pathname.split("/")[1] || "ar";
 
-    const handleScroll = () => {
-      if (window.scrollY > 20) {
-        header.classList.remove('bg-transparent', 'border-transparent', 'py-4');
-        header.classList.add('bg-background/80', 'backdrop-blur-md', 'border-foreground/10', 'py-2', 'shadow-sm');
-      } else {
-        header.classList.add('bg-transparent', 'border-transparent', 'py-4');
-        header.classList.remove('bg-background/80', 'backdrop-blur-md', 'border-foreground/10', 'py-2', 'shadow-sm');
+    if (sessionStr) {
+      try {
+        const session = JSON.parse(sessionStr);
+        if (session && session.name) {
+          // Update user details
+          const nameEl = document.getElementById("header-user-name");
+          if (nameEl) nameEl.textContent = session.name;
+
+          const avatarImg = document.getElementById(
+            "header-avatar-img",
+          ) as HTMLImageElement;
+          const avatarInitials = document.getElementById(
+            "header-avatar-initials",
+          );
+
+          if (session.avatar && avatarImg) {
+            avatarImg.src = session.avatar;
+            avatarImg.classList.remove("hidden");
+            if (avatarInitials) avatarInitials.classList.add("hidden");
+          } else if (avatarInitials) {
+            avatarInitials.textContent = session.name.charAt(0).toUpperCase();
+            avatarInitials.classList.remove("hidden");
+            if (avatarImg) avatarImg.classList.add("hidden");
+          }
+
+          // Show dropdown, hide login
+          if (dropdown) {
+            dropdown.classList.remove("hidden");
+            dropdown.classList.add("inline-block");
+          }
+          if (loginBtn) {
+            loginBtn.classList.add("hidden");
+            loginBtn.classList.remove("flex");
+          }
+          return;
+        }
+      } catch (e) {
+        console.error(
+          "Failed to parse session from localStorage in Header:",
+          e,
+        );
       }
-    };
+    }
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll(); // Initial check
+    // Fallback: logged out state
+    if (dropdown) {
+      dropdown.classList.add("hidden");
+      dropdown.classList.remove("inline-block");
+    }
+    if (loginBtn && !window.location.pathname.includes('/admin')) {
+      loginBtn.classList.remove("hidden");
+      loginBtn.classList.add("flex");
+    }
+
   }
 
-  // Run on first load and view transitions
-  initHeader();
-  document.addEventListener('astro:page-load', initHeader);
+  // Run immediately
+  updateHeaderAuthUI();
+
+  // Listen to localstorage updates to keep UI synchronized
+  window.addEventListener("storage", (e) => {
+    if (e.key === "meamart_session_active") {
+      updateHeaderAuthUI();
+    }
+  });
+
+  // Listen to custom session-update event from same window
+  window.addEventListener("session-update", () => {
+    updateHeaderAuthUI();
+  });
+
+  // Dropdown menu toggle
+  const btn = document.getElementById("user-dropdown-btn");
+  const menu = document.getElementById("header-user-dropdown-menu");
+
+  if (btn && menu) {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+
+      const isHidden = menu.classList.contains("hidden");
+      if (isHidden) {
+        menu.classList.remove("hidden");
+        setTimeout(() => {
+          menu.classList.remove("scale-95", "opacity-0");
+          menu.classList.add("scale-100", "opacity-100");
+        }, 10);
+      } else {
+        menu.classList.remove("scale-100", "opacity-100");
+        menu.classList.add("scale-95", "opacity-0");
+        setTimeout(() => {
+          menu.classList.add("hidden");
+        }, 150);
+      }
+    });
+
+    document.addEventListener("click", () => {
+      if (!menu.classList.contains("hidden")) {
+        menu.classList.remove("scale-100", "opacity-100");
+        menu.classList.add("scale-95", "opacity-0");
+        setTimeout(() => {
+          menu.classList.add("hidden");
+        }, 150);
+      }
+    });
+  }
+
+  // Clear localStorage on logout click
+  const logoutBtn = document.getElementById("header-logout-link");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      localStorage.removeItem("meamart_session_active");
+      localStorage.removeItem("meamart_session_timestamp");
+    });
+  }
 </script>

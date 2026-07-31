@@ -1,0 +1,37 @@
+---
+import Layout from '~/layouts/Layout.astro';
+import Container from '~/components/ui/Container.astro';
+import PageHeader from '~/components/layout/PageHeader.astro';
+import LoginTabsClient from '~/components/auth/LoginTabsClient';
+import { languages } from '~/i18n/ui';
+import { getLangFromUrl, useTranslations } from '~/i18n/utils';
+
+export const prerender = false;
+
+const { lang = 'ar' } = Astro.params;
+const t = useTranslations(lang);
+const googleClientId = process.env.GOOGLE_CLIENT_ID || import.meta.env.GOOGLE_CLIENT_ID || '';
+
+if (Astro.locals.userSession || Astro.cookies.get('meamart_session')?.value) {
+  const redirectTarget = Astro.url.searchParams.get('redirect') || `/${lang}/seller/dashboard`;
+  return Astro.redirect(redirectTarget);
+}
+---
+
+<Layout title={t['login.page.title']} description={t['login.page.desc']}>
+  <PageHeader title={t['login.header.title']} description={t['login.header.desc']} />
+
+  <Container class="pb-24 pt-8 max-w-md">
+    <LoginTabsClient 
+      client:load
+      signinLabel={t['login.tab.signin']}
+      registerLabel={t['login.tab.register']}
+      signinDesc={t['login.signin.desc']}
+      registerDesc={t['login.register.desc']}
+      googleBtn={t['login.google.btn']}
+      googleRegister={t['login.google.register']}
+      googleClientId={googleClientId}
+      lang={lang}
+    />
+  </Container>
+</Layout>

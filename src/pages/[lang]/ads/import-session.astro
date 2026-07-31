@@ -1,0 +1,345 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import { kvGet } from "~/utils/kv";
+import { categoriesStructure } from "~/utils/categories";
+import { useTranslations } from "~/i18n/utils";
+export const prerender = false;
+
+const { lang } = Astro.params as { lang: "ar" | "en" };
+const isAr = lang === "ar";
+const t = useTranslations(lang);
+
+const sessionId = Astro.url.searchParams.get("sessionId");
+let sessionData: any = null;
+
+if (sessionId) {
+  try {
+    const dataStr = await kvGet(Astro, `import_session_${sessionId}`);
+    if (dataStr) {
+      sessionData = JSON.parse(dataStr);
+    }
+  } catch (e) {
+    console.error("Failed to parse import session data", e);
+  }
+}
+---
+
+<Layout
+  title={t["gen.isar.import_session.1"]}
+  description="راجع الإعلانات المستخرجة من الوكيل الذكي واعتمد نشرها دفعة واحدة"
+>
+  <PageHeader
+    title={t["gen.isar.import_session.2"]}
+    description={t["gen.isar.import_session.3"]}
+  />
+
+  <Container class="pb-24 max-w-7xl">
+    {
+      !sessionData ? (
+        <div class="rounded-3xl border border-red-500/20 bg-red-500/5 p-8 text-center">
+          <p class="text-sm font-bold text-red-500">
+            {t["gen.isar.import_session.4"]}
+          </p>
+          <a
+            href={`/${lang}/ads/create`}
+            class="mt-4 inline-block rounded-full bg-primary px-6 py-2.5 text-xs font-bold text-white shadow-lg"
+          >
+            {t["gen.isar.import_session.5"]}
+          </a>
+        </div>
+      ) : (
+        <div class="space-y-6">
+          {/* Brand header */}
+          {sessionData.brandName && (
+            <div class="rounded-3xl border border-zinc-200/50 bg-white/60 p-6 shadow-md backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 flex items-center gap-4">
+              {sessionData.brandLogo && (
+                <img
+                  src={sessionData.brandLogo}
+                  alt={sessionData.brandName}
+                  class="w-12 h-12 rounded-full object-cover border border-zinc-200 dark:border-zinc-800"
+                />
+              )}
+              <div>
+                <h2 class="text-base font-bold text-zinc-800 dark:text-zinc-200">
+                  {sessionData.brandName}
+                </h2>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                  {t["gen.isar.import_session.6"]}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Settings form */}
+          <div class="rounded-3xl border border-zinc-200/50 bg-white/60 p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-6">
+            <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-200 border-b border-zinc-200/30 pb-3">
+              {t["gen.isar.import_session.7"]}
+            </h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Category */}
+              <div>
+                <label class="form-label">
+                  {t["gen.isar.import_session.8"]} *
+                </label>
+                <select
+                  id="session-category"
+                  class="form-select"
+                >
+                  {categoriesStructure.map((group) => (
+                    <optgroup label={isAr ? group.labelAr : group.labelEn}>
+                      {group.children.map((c) => (
+                        <option
+                          value={c.key}
+                          selected={c.key === sessionData.categoryKey}
+                        >
+                          {isAr ? c.ar : c.en}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+
+              {/* WhatsApp phone */}
+              <div>
+                <label class="form-label">
+                  {t["gen.isar.import_session.9"]} *
+                </label>
+                <input
+                  type="text"
+                  id="session-whatsapp"
+                  required
+                  placeholder="9665xxxxxxxx"
+                  value={
+                    sessionData.contact_whatsapp ||
+                    sessionData.contact_phone ||
+                    ""
+                  }
+                  class="form-input"
+                />
+              </div>
+
+              {/* Contact name */}
+              <div class="md:col-span-2">
+                <label class="form-label">
+                  {t["gen.isar.import_session.10"]}
+                </label>
+                <input
+                  type="text"
+                  id="session-name"
+                  value={sessionData.brandName || ""}
+                  class="form-input"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Items list */}
+          <div class="rounded-3xl border border-zinc-200/50 bg-white/60 p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-4">
+            <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-200 border-b border-zinc-200/30 pb-3 flex justify-between items-center">
+              <span>{t["gen.isar.import_session.11"]}</span>
+              <span class="text-xs text-zinc-500 font-semibold">
+                {t["gen.isar.import_session.12"].replace(
+                  "${sessionData.items.length}",
+                  sessionData.items.length.toString(),
+                )}
+              </span>
+            </h3>
+
+            <div class="space-y-3" id="items-list-container">
+              {sessionData.items.map((item: any, idx: number) => (
+                <div
+                  class="flex items-start gap-4 p-4 rounded-full bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200/50 dark:border-zinc-800/40 hover:border-primary/20 transition-all"
+                  data-idx={idx}
+                >
+                  <input
+                    type="checkbox"
+                    checked
+                    class="item-checkbox mt-1 rounded border-zinc-300 text-primary focus:ring-primary dark:border-zinc-800"
+                  />
+                  <div class="flex-1 space-y-1">
+                    <div class="flex justify-between items-start gap-2">
+                      <h4 class="text-sm font-bold text-zinc-800 dark:text-zinc-200 item-title">
+                        {item.title}
+                      </h4>
+                      <span class="text-sm font-extrabold text-primary item-price-display">
+                        {t["ads.card.price.format"]
+                          .replace("{price}", String(item.price))
+                          .replace("{symbol}", t["gen.isar.import_session.13"])}
+                      </span>
+                      <input
+                        type="hidden"
+                        class="item-price"
+                        value={item.price}
+                      />
+                    </div>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 item-desc">
+                      {item.description || t["gen.isar.import_session.14"]}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Actions & Progress */}
+            <div class="pt-4 border-t border-zinc-200/30 space-y-4">
+              <button
+                type="button"
+                id="publish-session-btn"
+                class="w-full rounded-full bg-primary py-3.5 text-sm font-bold text-white shadow-lg transition hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+              >
+                {t["gen.isar.import_session.15"]}
+              </button>
+
+              {/* Progress status */}
+              <div
+                id="session-progress-status"
+                class="hidden p-4 rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold space-y-2"
+              >
+                <div class="flex justify-between items-center">
+                  <span id="session-progress-text">جاري المعالجة...</span>
+                  <span id="session-progress-percentage">0%</span>
+                </div>
+                <div class="w-full bg-zinc-200 dark:bg-zinc-700 h-2 rounded-full overflow-hidden">
+                  <div
+                    id="session-progress-bar"
+                    class="bg-primary h-full w-0 transition-all duration-300"
+                  />
+                </div>
+                <div
+                  id="session-success-list"
+                  class="space-y-1 pt-2 max-h-40 overflow-y-auto"
+                >
+                  {/* Successfully created ad links populated here */}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+  </Container>
+</Layout>
+
+<script
+  define:vars={{
+    msgNoItems: t["gen.isar.import_session.16"],
+    msgNoWhatsapp: t["gen.isar.import_session.17"],
+    msgProcessingFormat: t["gen.isar.import_session.18"],
+    langCode: t["gen.isar.import_session.19"],
+    langUrl: t["gen.isar.import_session.20"],
+    msgDone: t["gen.isar.import_session.21"],
+  }}
+>
+  const isAr = window.location.pathname.startsWith("/ar");
+  const publishBtn = document.getElementById("publish-session-btn");
+  const progressStatus = document.getElementById("session-progress-status");
+  const progressText = document.getElementById("session-progress-text");
+  const progressPercentage = document.getElementById(
+    "session-progress-percentage",
+  );
+  const progressBar = document.getElementById("session-progress-bar");
+  const successList = document.getElementById("session-success-list");
+
+  publishBtn?.addEventListener("click", async () => {
+    const itemCards = document.querySelectorAll("#items-list-container > div");
+    const selectedItems = [];
+
+    itemCards.forEach((card) => {
+      const checkbox = card.querySelector(".item-checkbox");
+      if (checkbox && checkbox.checked) {
+        selectedItems.push({
+          title: card.querySelector(".item-title")?.textContent?.trim() || "",
+          price: Number(card.querySelector(".item-price")?.value) || 0,
+          description:
+            card.querySelector(".item-desc")?.textContent?.trim() || "",
+        });
+      }
+    });
+
+    if (selectedItems.length === 0) {
+      alert(msgNoItems);
+      return;
+    }
+
+    const categoryKey = document.getElementById("session-category").value;
+    const contactWhatsapp = document.getElementById("session-whatsapp").value;
+    const contactName = document.getElementById("session-name").value;
+
+    if (!contactWhatsapp) {
+      alert(msgNoWhatsapp);
+      return;
+    }
+
+    publishBtn.disabled = true;
+    progressStatus?.classList.remove("hidden");
+    if (successList) successList.innerHTML = "";
+
+    for (let i = 0; i < selectedItems.length; i++) {
+      const item = selectedItems[i];
+      const percent = Math.round(((i + 1) / selectedItems.length) * 100);
+
+      if (progressText) {
+        progressText.textContent = msgProcessingFormat
+          .replace("${item.title}", item.title)
+          .replace("${i + 1}", String(i + 1))
+          .replace("${selectedItems.length}", String(selectedItems.length));
+      }
+      if (progressPercentage) progressPercentage.textContent = `${percent}%`;
+      if (progressBar) progressBar.style.width = `${percent}%`;
+
+      const payload = {
+        listing_title: item.title,
+        listing_description: item.description || item.title,
+        listing_price: item.price || 0,
+        categoryKey: categoryKey,
+        contact_name: contactName,
+        contact_whatsapp: contactWhatsapp,
+        contact_method: "whatsapp",
+        lang: langCode,
+      };
+
+      try {
+        const res = await fetch("/api/create-ad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const resData = await res.json();
+        if (resData.success) {
+          const adLink = document.createElement("div");
+          adLink.className =
+            "text-xs font-bold text-green-600 dark:text-green-400 flex items-center gap-1.5 py-0.5";
+          adLink.innerHTML = `
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+            </svg>
+            <a href="/${langUrl}/ads/${resData.slug}" target="_blank" class="hover:underline">${item.title}</a>
+          `;
+          successList?.appendChild(adLink);
+        } else {
+          const errDiv = document.createElement("div");
+          errDiv.className = "text-xs font-semibold text-red-500 py-0.5";
+          errDiv.textContent = `❌ ${item.title}: ${resData.error || "Failed"}`;
+          successList?.appendChild(errDiv);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      // 2-second rate-limiting delay between creates
+      if (i < selectedItems.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
+
+    if (progressText) {
+      progressText.textContent = msgDone;
+    }
+
+    publishBtn.disabled = false;
+  });
+</script>

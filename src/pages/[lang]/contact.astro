@@ -1,79 +1,184 @@
 ---
-export const prerender = true;
-import Layout from '~/layouts/Layout.astro';
-import { siteConfig } from '~/site.config';
-import ContactForm from '~/components/islands/ContactForm';
-import { Mail, MapPin, Phone } from 'lucide-react';
-import PageHeader from '~/components/layout/PageHeader.astro';
-import Container from '~/components/ui/Container.astro';
-import Grid from '~/components/ui/Grid.astro';
-import { languages } from '~/i18n/ui';
-import { useTranslations } from '~/i18n/utils';
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import ContactForm from "~/components/islands/ContactForm.jsx";
+import { siteConfig } from "~/site.config";
+import {
+  Mail,
+  MapPin,
+  MessageSquare,
+  Sparkles,
+  ExternalLink,
+} from "lucide-react";
+import { languages, defaultLang } from "~/i18n/ui";
+import { useTranslations } from "~/i18n/utils";
 
 export async function getStaticPaths() {
   return Object.keys(languages).map((lang) => ({ params: { lang } }));
 }
 
-const { lang } = Astro.params;
+const { lang = defaultLang } = Astro.params;
 const t = useTranslations(lang);
 ---
 
-<Layout title="Contact Us - Astro Boilerplate" description="Get in touch with our team.">
-  <PageHeader 
-      title={t['contact.title']}
-      description={t['contact.desc']}
+<Layout
+  title={String(t["contact.title"])}
+  description={String(t["contact.desc"])}
+>
+  <PageHeader
+    title={String(t["contact.hero.title"]) +
+      " <span class='bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent'>" +
+      String(t["contact.hero.highlight"]) +
+      "</span>"}
+    description={String(t["contact.hero.subtitle"])}
   />
 
-  <Container as="section" class="pb-24">
-      <Grid cols={2} class="gap-12">
-          <!-- Contact Info -->
-          <div class="space-y-8">
-              <h2 class="text-2xl font-bold mb-6">{t['contact.info.title']}</h2>
-              
-              <div class="flex items-start gap-4">
-                  <div class="p-3 rounded-lg bg-primary/10 text-primary">
-                      <Mail className="w-6 h-6" />
-                  </div>
-                  <div>
-                      <h3 class="font-bold mb-1">{t['contact.email']}</h3>
-                      <p class="text-muted-foreground">{siteConfig.contact.email.support}</p>
-                      <p class="text-muted-foreground">{siteConfig.contact.email.sales}</p>
-                  </div>
-              </div>
-
-              <div class="flex items-start gap-4">
-                  <div class="p-3 rounded-lg bg-primary/10 text-primary">
-                      <Phone className="w-6 h-6" />
-                  </div>
-                  <div>
-                      <h3 class="font-bold mb-1">{t['contact.phone']}</h3>
-                      <p class="text-muted-foreground">{siteConfig.contact.phone.main}</p>
-                      <p class="text-muted-foreground">{siteConfig.contact.phone.label}</p>
-                  </div>
-              </div>
-
-               <div class="flex items-start gap-4">
-                  <div class="p-3 rounded-lg bg-primary/10 text-primary">
-                      <MapPin className="w-6 h-6" />
-                  </div>
-                  <div>
-                      <h3 class="font-bold mb-1">{t['contact.office']}</h3>
-                      <p class="text-muted-foreground">{siteConfig.contact.address.city}</p>
-                      <p class="text-muted-foreground">{siteConfig.contact.address.full}</p>
-                  </div>
-              </div>
-              
-              <div class="p-6 rounded-2xl bg-linear-to-br from-primary/20 to-purple-500/20 border border-white/10 mt-8">
-                  <h3 class="font-bold mb-2">{t['contact.enterprise.title']}</h3>
-                  <p class="text-sm text-muted-foreground mb-4">{t['contact.enterprise.desc']}</p>
-                  <a href="#" class="text-sm font-medium text-primary hover:underline">{t['contact.enterprise.btn']} &rarr;</a>
-              </div>
+  <!-- Main Content -->
+  <Container class="py-20">
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-12 items-start">
+      <!-- Info Column -->
+      <div class="lg:col-span-2 space-y-6">
+        <div
+          class="rounded-3xl border border-zinc-200/50 bg-white/60 dark:border-zinc-800/50 dark:bg-zinc-900/50 backdrop-blur-md overflow-hidden"
+        >
+          <!-- Email -->
+          <div
+            class="flex items-start gap-4 p-6 border-b border-zinc-100 dark:border-zinc-800"
+          >
+            <div
+              class="h-10 w-10 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-primary"
+            >
+              <Mail className="w-5 h-5" />
+            </div>
+            <div class="min-w-0">
+              <h3
+                class="text-sm font-bold text-zinc-900 dark:text-zinc-50 mb-1"
+              >
+                {t["contact.email"]}
+              </h3>
+              <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                {siteConfig.contact.email.support}
+              </p>
+              <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                {siteConfig.contact.email.sales}
+              </p>
+            </div>
           </div>
 
-          <!-- Contact Form -->
-          <div>
-              <ContactForm client:only="react" />
+          <!-- WhatsApp -->
+          <div
+            class="flex items-start gap-4 p-6 border-b border-zinc-100 dark:border-zinc-800"
+          >
+            <div
+              class="h-10 w-10 shrink-0 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400"
+            >
+              <MessageSquare className="w-5 h-5" />
+            </div>
+            <div class="min-w-0">
+              <h3
+                class="text-sm font-bold text-zinc-900 dark:text-zinc-50 mb-1"
+              >
+                {t["contact.phone"]}
+              </h3>
+              <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                {siteConfig.contact.phone.main}
+              </p>
+              <p class="text-xs text-zinc-400 dark:text-zinc-500">
+                {siteConfig.contact.phone.label}
+              </p>
+            </div>
           </div>
-      </Grid>
+
+          <!-- Location -->
+          <div class="flex items-start gap-4 p-6">
+            <div
+              class="h-10 w-10 shrink-0 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500"
+            >
+              <MapPin className="w-5 h-5" />
+            </div>
+            <div class="min-w-0">
+              <h3
+                class="text-sm font-bold text-zinc-900 dark:text-zinc-50 mb-1"
+              >
+                {t["contact.office"]}
+              </h3>
+              <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                {siteConfig.contact.address.city}
+              </p>
+              <p class="text-xs text-zinc-400 dark:text-zinc-500">
+                {siteConfig.contact.address.full}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Enterprise Card -->
+        <div
+          class="rounded-3xl border border-primary/20 bg-linear-to-br from-primary/5 to-violet-500/5 dark:from-primary/10 dark:to-violet-500/10 p-6 backdrop-blur-md"
+        >
+          <div class="flex items-center gap-2 mb-3">
+            <span
+              class="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+            </span>
+            <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+              {t["contact.enterprise.title"]}
+            </h3>
+          </div>
+          <p
+            class="text-xs text-zinc-500 dark:text-zinc-400 mb-4 leading-relaxed"
+          >
+            {t["contact.enterprise.desc"]}
+          </p>
+          <a
+            href={`mailto:${siteConfig.contact.email.sales}`}
+            class="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+          >
+            {t["contact.enterprise.btn"]}
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      </div>
+
+      <!-- Form Column -->
+      <div class="lg:col-span-3">
+        <div
+          class="rounded-3xl border border-zinc-200/50 bg-white/60 dark:border-zinc-800/50 dark:bg-zinc-900/50 backdrop-blur-md p-8"
+        >
+          <div class="mb-6">
+            <h2
+              class="text-xl font-bold font-display text-zinc-900 dark:text-zinc-50"
+            >
+              {t["contact.form.title"]}
+            </h2>
+            <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+              {t["contact.form.subtitle"]}
+            </p>
+          </div>
+          <ContactForm
+            client:load
+            labels={{
+              name: String(t["contact.form.name"]),
+              namePlaceholder: String(t["contact.form.name.placeholder"]),
+              nameRequired: String(t["contact.form.name.required"]),
+              email: String(t["contact.form.email"]),
+              emailPlaceholder: String(t["contact.form.email.placeholder"]),
+              emailRequired: String(t["contact.form.email.required"]),
+              emailInvalid: String(t["contact.form.email.invalid"]),
+              message: String(t["contact.form.message"]),
+              messagePlaceholder: String(t["contact.form.message.placeholder"]),
+              messageRequired: String(t["contact.form.message.required"]),
+              submit: String(t["contact.form.submit"]),
+              submitting: String(t["contact.form.submitting"]),
+              successTitle: String(t["contact.form.success.title"]),
+              successDesc: String(t["contact.form.success.desc"]),
+              sendAnother: String(t["contact.form.send.another"]),
+            }}
+          />
+        </div>
+      </div>
+    </div>
   </Container>
 </Layout>

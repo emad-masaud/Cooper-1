@@ -1,0 +1,30 @@
+---
+import Layout from '~/layouts/Layout.astro';
+import Container from '~/components/ui/Container.astro';
+import PageHeader from '~/components/layout/PageHeader.astro';
+import AdminNavTabs from "~/components/admin/AdminNavTabs.astro";
+import { parseAdminSession } from '~/utils/session';
+import { defaultLang } from '~/i18n/ui';
+import { isRtl, useTranslations } from '~/i18n/utils';
+import ChatbotManagerClient from '~/components/admin/ChatbotManagerClient';
+
+export const prerender = false;
+
+const { lang = defaultLang } = Astro.params;
+const t = useTranslations(lang);
+
+const session = await parseAdminSession(Astro.cookies, Astro.locals);
+if (!session || !session.is_admin) {
+  return Astro.redirect(`/${lang}/admin-login`);
+}
+---
+
+<Layout title="Bot Editor | MeaMart" description="MeaMart Bot Flow Editor">
+  <PageHeader title={t['admin.chatbot.title']} description={t['admin.chatbot.desc']} />
+
+  <Container class="pb-24 max-w-full">
+    <AdminNavTabs lang={lang} activeTab="chatbot" />
+
+    <ChatbotManagerClient client:load lang={lang} />
+  </Container>
+</Layout>

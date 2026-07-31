@@ -1,0 +1,1137 @@
+---
+import Layout from '~/layouts/Layout.astro';
+import Container from '~/components/ui/Container.astro';
+import Button from '~/components/ui/Button.astro';
+import AdSlider from '~/components/ui/AdSlider';
+import Schema from '~/components/layout/Schema.astro';
+import { siteConfig } from '~/site.config';
+import { getCollection } from 'astro:content';
+import { languages } from '~/i18n/ui';
+import { useTranslations } from '~/i18n/utils';
+import { MapPin, Tag, User, CheckCircle, Instagram, Facebook, Send, Globe, ExternalLink, MessageSquare, QrCode, Eye } from 'lucide-react';
+import { categoriesMap } from '~/utils/categories';
+import { getCustomFieldsByCategoryKey } from '~/utils/customFields';
+import { getCityLabel } from '~/utils/cities';
+import { getMeamartSession } from '~/utils/session';
+import { generateCustomQRCode } from '~/utils/qrcode';
+import { kvPut, kvGet } from '~/utils/kv';
+import { supabaseAdminClient } from '~/utils/supabase';
+import { buildAdJsonLd } from '~/utils/schemaGenerator';
+
+export const prerender = false;
+
+const { lang, slug } = Astro.params;
+const t = useTranslations(lang);
+const isAr = lang === 'ar';
+
+
+let ad = null;
+
+// Try to find the ad in build-time static collections
+try {
+  const ads = await getCollection('ads');
+  ad = ads.find((a) => a.id === slug);
+} catch (e) {
+  console.error("Failed to read static ads collection", e);
+}
+
+// Fallback 1: Fetch from Supabase Ads table dynamically
+if (!ad && slug) {
+  try {
+    let query = supabaseAdminClient.from('ads').select('*, categories(slug)');
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
+    
+    if (isUuid) {
+      query = query.eq('id', slug);
+    } else {
+      query = query.eq('slug', slug);
+    }
+    
+    const { data: adRow, error } = await query.maybeSingle();
+    
+    if (error) {
+      console.error('[ads slug] query error:', error);
+    }
+
+    if (adRow) {
+      let sellerInfo: any = {};
+      const sellerId = adRow.user_id;
+      if (sellerId) {
+        const { data: profile } = await supabaseAdminClient
+          .from('profiles')
+          .select('*')
+          .eq('id', sellerId)
+          .maybeSingle();
+        if (profile) sellerInfo = profile;
+      }
+      const images = Array.isArray(adRow.images) && adRow.images.length > 0 ? adRow.images : ['/logo.svg'];
+      ad = {
+        id: String(adRow.id),
+        data: {
+          listing_title: adRow.title || 'بدون عنوان',
+          listing_description: adRow.description || '',
+          listing_price: Number(adRow.price) || 0,
+          listing_currency: adRow.currency || 'SAR',
+          listing_condition: adRow.condition || 'used',
+          listing_city: adRow.city || '',
+          listing_district: adRow.district || '',
+          listing_address: adRow.address || '',
+          contact_name: adRow.contact_name || sellerInfo.name || '',
+          contact_phone: adRow.contact_phone || sellerInfo.phone || '',
+          contact_whatsapp: adRow.contact_whatsapp || adRow.contact_phone || sellerInfo.phone || '',
+          contact_method: 'whatsapp',
+          image: images[0],
+          images: images,
+          custom_fields: adRow.custom_fields || {},
+          categoryKey: adRow.custom_fields?._category_slug || adRow.categories?.slug || adRow.category_id || 'used-items',
+          pubDate: new Date(adRow.created_at || Date.now()),
+          user_id: sellerId,
+          seller_username: sellerInfo.username || null
+        }
+      };
+    }
+  } catch (err) {
+    console.error('Failed to load ad from Supabase:', err);
+  }
+}
+
+if (!ad) {
+  return Astro.redirect(`/${lang}/ads`);
+}
+
+const session = await getMeamartSession(Astro);
+// Ownership: Supabase user_id is primary, email match is fallback, admin always allowed
+const isOwner = session && (
+  (ad.data.user_id && session.id === ad.data.user_id) ||
+  (session.email && ad.data.contact_email && session.email.toLowerCase() === ad.data.contact_email.toLowerCase()) ||
+  session.is_admin
+);
+
+const title = ad.data.listing_title;
+const description = ad.data.listing_description;
+const currentLang: 'ar' | 'en' = t['gen.isar.____slug_.1'];
+
+let safeCategoryKey = ad.data.categoryKey;
+if (safeCategoryKey === 'Other' || safeCategoryKey === 'other' || !categoriesMap[safeCategoryKey]) {
+  safeCategoryKey = 'used-items';
+}
+
+const category = categoriesMap[safeCategoryKey]?.[currentLang] || categoriesMap[safeCategoryKey]?.en || safeCategoryKey;
+const city = ad.data.listing_city ? getCityLabel(ad.data.listing_city, currentLang) : '';
+
+const specs = {
+  [t['ad.spec.currency']]: ad.data.listing_currency,
+  [t['ad.spec.condition']]: ad.data.listing_condition === 'new' ? t['ad.spec.condition.new'] : t['ad.spec.condition.used'],
+  [t['ad.spec.negotiable']]: ad.data.listing_negotiable ? t['ad.spec.negotiable.yes'] : t['ad.spec.negotiable.no'],
+  [t['ad.spec.city']]: city,
+  [t['ad.spec.district']]: ad.data.listing_district,
+  [t['ad.spec.address']]: ad.data.listing_address || t['ad.spec.address.unknown'],
+  [t['ad.spec.contact.method']]: t['ad.spec.contact.whatsapp'] || (isAr ? 'واتساب' : 'WhatsApp'),
+  [t['ad.spec.expires']]: ad.data.expires_at || t['ad.spec.expires.unknown']
+};
+
+const rawImg = ad.data.image || (Array.isArray(ad.data.images) && ad.data.images[0]) || '/logo.svg';
+const mainImageUrl = typeof rawImg === 'string' && rawImg.startsWith('http')
+  ? rawImg
+  : `${Astro.site || 'https://meamart.com'}/${String(rawImg).replace(/^\//, '')}`;
+
+// Formatted Price
+const listingCurrency = ad.data.listing_currency || 'SAR';
+const normalizedCurrency = String(listingCurrency).toUpperCase();
+
+const currencySymbolMap: Record<string, string> = {
+  SAR: '﷼',
+  USD: '$',
+  EUR: '€',
+};
+
+const currencySymbol = currencySymbolMap[normalizedCurrency] || normalizedCurrency;
+const localeTag = isAr ? 'ar-SA' : 'en-US';
+const formattedAmount = new Intl.NumberFormat(localeTag, {
+  maximumFractionDigits: 0
+}).format(Number(ad.data.listing_price) || 0);
+
+const formattedPrice = `${formattedAmount} ${currencySymbol}`;
+
+// WhatsApp url builder targeting MeaMart Bot
+const whatsappBotNumber = siteConfig.chatbot.phoneNumber;
+const rawIdStr = String(ad.id || '');
+const shortAdId = ad.data?.custom_fields?.ad_ref || ad.data?.custom_fields?.short_id || ad.data?.short_id || ad.data?.ad_number || (rawIdStr.includes('-') ? rawIdStr.split('-')[0].toUpperCase() : rawIdStr.slice(0, 8).toUpperCase());
+const adIdentifierDisplay = `MM-${shortAdId}`;
+const whatsappUrl = `https://wa.me/${whatsappBotNumber}?text=${encodeURIComponent(
+  t['ad.whatsapp.msg'].replace('{id}', shortAdId)
+)}`;
+
+// JSON-LD structured data
+const whatsappMsgText = t['ad.whatsapp.msg'].replace('{id}', shortAdId);
+
+const jsonLd = buildAdJsonLd(ad, {
+  url: Astro.url.href,
+  title: title,
+  description: description,
+  imageUrl: mainImageUrl,
+  price: ad.data.listing_price,
+  currency: ad.data.listing_currency || 'SAR',
+  condition: ad.data.listing_condition,
+  contactName: ad.data.contact_name,
+  contactPhone: ad.data.contact_phone,
+  whatsappUrl: whatsappUrl,
+  whatsappMsgText: whatsappMsgText,
+  whatsappBotNumber: whatsappBotNumber,
+  city: city,
+  country: ad.data.listing_country || 'Saudi Arabia',
+  district: ad.data.listing_district,
+  lat: ad.data.custom_fields?.lat || ad.data.custom_fields?.latitude,
+  lng: ad.data.custom_fields?.lng || ad.data.custom_fields?.longitude,
+  postalCode: ad.data.custom_fields?.postal_code || ad.data.custom_fields?.postcode,
+  lang: lang,
+  communicateActionName: t['gen.lt.____slug_.1'],
+  buyActionName: t['gen.lt.____slug_.2']
+});
+
+// Dynamic SEO Title and Description
+const conditionStr = ad.data.listing_condition === 'new' ? t['ad.seo.condition.new'] : t['ad.seo.condition.used'];
+
+const seoTitle = t['ad.seo.title']
+  .replace('{title}', title)
+  .replace('{condition}', conditionStr)
+  .replace('{city}', city)
+  .replace('{price}', formattedPrice);
+
+const seoDescription = t['ad.seo.desc']
+  .replace('{title}', title)
+  .replace('{city}', city);
+
+const sellerAvatar = ad.data.seller_avatar || '';
+const displaySellerAvatar = sellerAvatar || "/logo.svg";
+const sellerAvatarClass = sellerAvatar ? "h-full w-full object-cover" : "h-10 w-10 opacity-40";
+const sellerBanner = ad.data.seller_banner || '';
+const sellerInstagram = ad.data.seller_instagram || '';
+const sellerFacebook = ad.data.seller_facebook || '';
+const sellerTelegram = ad.data.seller_telegram || '';
+const sellerWebsite = ad.data.seller_website || '';
+const sellerGmaps = ad.data.seller_gmaps || '';
+
+// Dynamic customized specs for specific categories
+const customFields = getCustomFieldsByCategoryKey(ad.data.categoryKey);
+const customFieldsData = ad.data.custom_fields || {};
+const customSpecs: Record<string, string> = {};
+
+customFields.forEach(field => {
+  const value = customFieldsData[field.meta_key];
+  if (value !== undefined && value !== null && value !== '') {
+    const label = (isAr ? field.label : field.english_label);
+    let displayValue = String(value);
+    
+    if (field.type === 'select' && field.options) {
+      const optIdx = field.options.findIndex((opt: string) => String(opt) === String(value));
+      if (optIdx !== -1) {
+        displayValue = isAr 
+          ? field.options[optIdx] 
+          : (field.english_options ? field.english_options[optIdx] : field.options[optIdx]);
+      }
+    } else if (field.type === 'boolean') {
+      const boolVal = value === true || value === 'true' || value === 1 || value === '1';
+      displayValue = boolVal
+        ? t['gen.lt.____slug_.3']
+        : t['gen.lt.____slug_.4'];
+    }
+    
+    customSpecs[label] = displayValue;
+  }
+});
+
+// Comments list from Supabase
+let comments: any[] = [];
+try {
+  const { data: commentRows } = await supabaseAdminClient
+    .from('ad_comments')
+    .select('*')
+    .eq('ad_id', ad.id)
+    .eq('status', 'approved')
+    .order('created_at', { ascending: false });
+  comments = (commentRows || []).map((c: any) => ({
+    authorName: c.author_name || 'Guest',
+    date: c.created_at ? new Date(c.created_at).toLocaleDateString(isAr ? 'ar-SA' : 'en-US') : '',
+    content: c.content || ''
+  }));
+} catch (e) {
+  console.error('Failed to load ad comments from Supabase:', e);
+}
+
+// QR Code setup for redirect and tracking
+const adQrId = `ad-${ad.id}`;
+const adTrackingUrl = `${Astro.url.origin}/r/${adQrId}`;
+
+const sellerUsername = ad.data.seller_username || '';
+const sellerPhoneClean = String(ad.data.contact_phone || '').replace(/[^0-9]/g, '');
+const sellerQrId = sellerUsername ? `seller-${sellerUsername}` : `seller-${sellerPhoneClean || 'unknown'}`;
+const sellerTrackingUrl = `${Astro.url.origin}/r/${sellerQrId}`;
+
+// Generate QR Code SVGs safely
+let adQrSvg = '';
+let sellerQrSvg = '';
+let adQrDataUri = '';
+try {
+  let customAdQrOptions: any = null;
+  let customSellerQrOptions: any = null;
+
+  // Try fetching custom designs from the database
+  try {
+    // 1. Fetch Ad QR Options
+    const { data: adQrLink } = await supabaseAdminClient
+      .from('qr_links')
+      .select('qr_options')
+      .eq('entity_type', 'ad')
+      .eq('entity_id', String(ad.id))
+      .maybeSingle();
+      
+    if (adQrLink && adQrLink.qr_options) customAdQrOptions = adQrLink.qr_options;
+
+    // 2. Fetch Seller QR Options reliably by user_id
+    const sellerUserId = String(ad.data.seller_id || ad.data.user_id || '');
+    if (sellerUserId) {
+      const { data: sellerQrLinks } = await supabaseAdminClient
+        .from('qr_links')
+        .select('qr_options')
+        .eq('entity_type', 'seller')
+        .eq('user_id', sellerUserId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+        
+      if (sellerQrLinks && sellerQrLinks.length > 0 && sellerQrLinks[0].qr_options) {
+        customSellerQrOptions = sellerQrLinks[0].qr_options;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to fetch custom QR options, falling back to default:', e);
+  }
+
+  adQrSvg = await generateCustomQRCode({
+    text: adTrackingUrl,
+    qr_options: customAdQrOptions,
+    gradient: { start: '#6c47ff', end: '#a855f7' },
+    logo: 'whatsapp'
+  });
+  sellerQrSvg = await generateCustomQRCode({
+    text: sellerTrackingUrl,
+    qr_options: customSellerQrOptions,
+    gradient: { start: '#10b981', end: '#059669' },
+    logo: 'whatsapp'
+  });
+
+  // Convert Ad SVG to base64 for download
+  const adQrBase64 = Buffer.from(adQrSvg).toString('base64');
+  adQrDataUri = `data:image/svg+xml;base64,${adQrBase64}`;
+
+} catch (e) {
+  console.error('QR generation non-blocking error:', e);
+}
+
+// Cache redirection links in KV to ensure fast routing on scan
+try {
+  await kvPut(Astro, `qr:link:${adQrId}`, Astro.url.pathname);
+  await kvPut(Astro, `qr:link:${sellerQrId}`, `/${lang}/seller/${sellerPhoneClean}`);
+} catch (e) {
+  console.error('Failed to update redirection mapping in KV:', e);
+}
+
+// Increment view counter
+const viewsKey = `ad:views:${ad.id}`;
+let adViews = 0;
+try {
+  adViews = Number(await kvGet(Astro, viewsKey) || 0);
+  adViews++;
+  await kvPut(Astro, viewsKey, String(adViews));
+} catch (e) {
+  console.error('Failed to update view counter in KV:', e);
+}
+
+// Calculate Video Embed URL if present
+let embedUrl = '';
+if (ad.data.video_url && ad.data.video_primary) {
+  const rawUrl = ad.data.video_url || '';
+  embedUrl = rawUrl;
+  const ytMatch = rawUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if (ytMatch) embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}?rel=0&autoplay=0`;
+  const ttMatch = rawUrl.match(/tiktok\.com\/@[^/]+\/video\/(\d+)/);
+  if (ttMatch) embedUrl = `https://www.tiktok.com/embed/v2/${ttMatch[1]}`;
+  const igMatch = rawUrl.match(/instagram\.com\/(?:reel|p)\/([A-Za-z0-9_-]+)/);
+  if (igMatch) embedUrl = `https://www.instagram.com/p/${igMatch[1]}/embed`;
+}
+
+// Check if ad has no images
+const hasNoImages = !ad.data.image || ad.data.image === '' || ad.data.image === '/' || ad.data.image.includes('undefined') || (Array.isArray(ad.data.images) && ad.data.images.length === 0) || (Array.isArray(ad.data.images) && ad.data.images.length === 1 && (!ad.data.images[0] || ad.data.images[0] === '' || ad.data.images[0] === '/'));
+
+---
+
+<Layout title={seoTitle} description={seoDescription} image={mainImageUrl}>
+  <!-- Inject Structured Schema -->
+  <Schema item={jsonLd} />
+
+  <Container class="pt-32 pb-24">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+      
+      <!-- Left Column: Image Slider & Details -->
+      <div class="lg:col-span-7 space-y-12">
+        <!-- Interactive Slideshow OR Video (if video_primary) -->
+        {hasNoImages && (
+          <div 
+            id="no-image-fallback-card" 
+            data-id={ad.id}
+            class="relative aspect-video w-full rounded-3xl border border-zinc-200/50 bg-white/40 p-8 sm:p-10 shadow-md backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 flex flex-col justify-start items-start text-start overflow-y-auto"
+          >
+            <button 
+              id="btn-download-card" 
+              class="absolute top-6 end-6 text-zinc-400 hover:text-primary transition-colors p-2 rounded-full hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 z-25 cursor-pointer" 
+              title={t['gen.lt.____slug_.5']}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" x2="12" y1="15" y2="3"/>
+              </svg>
+            </button>
+
+            <div class="h-20 w-20 rounded-full border-4 border-white dark:border-zinc-900 overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-md shrink-0 mb-4 z-10 flex items-center justify-center">
+              <img 
+                src={displaySellerAvatar} 
+                alt={ad.data.contact_name} 
+                class={sellerAvatarClass} 
+              />
+            </div>
+            
+            <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-2 z-10">
+              {ad.data.contact_name}
+            </h3>
+            
+            <div class="prose prose-zinc dark:prose-invert max-w-none text-zinc-650 dark:text-zinc-300 text-sm leading-relaxed z-10">
+              {description}
+            </div>
+          </div>
+        )}
+
+        {!hasNoImages && ad.data.video_url && ad.data.video_primary && (
+          <div class="rounded-3xl overflow-hidden border border-zinc-200/50 dark:border-zinc-800/50 bg-black aspect-video">
+            <iframe
+              src={embedUrl}
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+              allowfullscreen
+              class="w-full h-full"
+              loading="lazy"
+            ></iframe>
+          </div>
+        )}
+
+        {!hasNoImages && !(ad.data.video_url && ad.data.video_primary) && (
+          <AdSlider images={ad.data.images} alt={title} client:load />
+        )}
+
+        <!-- Description block -->
+        <div class="mt-8 rounded-3xl border border-zinc-200/50 bg-white/40 p-6 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40">
+          <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+            {t['ad.details.description']}
+          </h2>
+          <div class="prose prose-zinc dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-300">
+            {description}
+          </div>
+        </div>
+
+        <!-- Specs block (if exist) -->
+        {specs && Object.keys(specs).length > 0 && (
+          <div class="rounded-3xl border border-zinc-200/50 bg-white/40 p-6 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40">
+            <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+              {t['ad.details.specifications']}
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.entries(specs).map(([key, val]) => (
+                <div class="flex items-center justify-between border-b border-zinc-100 pb-2 dark:border-zinc-800">
+                  <span class="text-sm text-zinc-500 dark:text-zinc-400 font-semibold">{key}</span>
+                  <span class="text-sm font-bold text-zinc-800 dark:text-zinc-200">{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <!-- Category Specific Specs block (if exist) -->
+        {customSpecs && Object.keys(customSpecs).length > 0 && (
+          <div class="rounded-3xl border border-zinc-200/50 bg-white/40 p-6 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40">
+            <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+              {t['ad.details.categorySpecs']}
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.entries(customSpecs).map(([key, val]) => (
+                <div class="flex items-center justify-between border-b border-zinc-100 pb-2 dark:border-zinc-800">
+                  <span class="text-sm text-zinc-500 dark:text-zinc-400 font-semibold">{key}</span>
+                  <span class="text-sm font-bold text-zinc-800 dark:text-zinc-200">{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <!-- Comments Section -->
+        <div class="rounded-3xl border border-zinc-200/50 bg-white/40 p-6 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 space-y-6">
+          <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2 pb-3 border-b border-zinc-200/60 dark:border-zinc-800/60">
+            <MessageSquare className="h-5 w-5 text-primary" />
+            <span>{t['gen.lt.____slug_.8']}</span>
+            <span class="text-xs font-semibold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">{comments.length}</span>
+          </h3>
+
+          {comments.length === 0 ? (
+            <div class="py-8 text-center text-zinc-500 dark:text-zinc-400">
+              <p class="text-sm font-semibold">{t['gen.lt.____slug_.9']}</p>
+              <p class="text-[10px] text-zinc-400 mt-1">{t['gen.lt.____slug_.10']}</p>
+            </div>
+          ) : (
+            <div class="space-y-4 max-h-100 overflow-y-auto pr-2">
+              {comments.map((c) => (
+                <div class="p-4 rounded-full bg-zinc-50/50 border border-zinc-100 dark:bg-zinc-900/30 dark:border-zinc-800/50 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-zinc-800 dark:text-zinc-200">{c.authorName}</span>
+                    <span class="text-[9px] text-zinc-400 font-semibold">{c.date}</span>
+                  </div>
+                  <p class="text-xs text-zinc-650 dark:text-zinc-300 leading-relaxed font-semibold">{c.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <!-- Right Column: Pricing & Contact Information -->
+      <div class="lg:col-span-5 space-y-6">
+        
+        <!-- Pricing card -->
+        <div class="rounded-3xl border border-zinc-200/50 bg-white/60 p-6 shadow-md backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Tag className="h-3.5 w-3.5" />
+              </span>
+              <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">{category}</span>
+            </div>
+            <!-- Views count badge -->
+            <div class="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 px-2.5 py-1 rounded-full font-bold">
+              <Eye className="h-3.5 w-3.5 text-zinc-400" />
+              <span>{adViews.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <!-- Ad Identifier / Short Reference Box -->
+          <div class="flex items-center justify-between bg-zinc-100/80 dark:bg-zinc-800/60 px-3.5 py-2 rounded-xl mb-4 border border-zinc-200/60 dark:border-zinc-700/60">
+            <div class="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-300">
+              <span class="text-zinc-400 dark:text-zinc-500 font-semibold">{isAr ? 'رقم الإعلان:' : 'Ad ID:'}</span>
+              <span class="font-mono text-primary font-extrabold select-all tracking-wider">{adIdentifierDisplay}</span>
+            </div>
+            <button
+              type="button"
+              onclick={`navigator.clipboard.writeText('${adIdentifierDisplay}'); this.innerHTML='✓'; setTimeout(()=>this.innerHTML='${isAr ? 'نسخ' : 'Copy'}', 1500);`}
+              class="text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+            >
+              {isAr ? 'نسخ' : 'Copy'}
+            </button>
+          </div>
+
+          <h1 class="text-2xl font-bold font-display text-zinc-900 dark:text-zinc-50 mb-4">
+            {title}
+          </h1>
+
+          <div class="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-full mb-6">
+
+            <span class="text-xs font-semibold text-zinc-500 block mb-1">
+              {t['ad.details.listingPrice']}
+            </span>
+            <span class="text-3xl font-extrabold text-primary">
+              {formattedPrice}
+            </span>
+          </div>
+
+          <!-- Direct WhatsApp button -->
+          <a 
+            href={whatsappUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            class="flex items-center justify-center gap-3 w-full rounded-full bg-emerald-500 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-emerald-600 hover:scale-[1.02] active:scale-[0.98]"
+            itemscope
+            itemtype="https://schema.org/CommunicateAction"
+          >
+            <meta itemprop="name" content={t['gen.lt.____slug_.6']} />
+            <meta itemprop="target" content={whatsappUrl} />
+            <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+            </svg>
+            <span>{t['ad.details.contactWhatsapp']}</span>
+          </a>          {isOwner && (
+            <div class="mt-6 pt-6 border-t border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-center gap-4">
+              <!-- Edit Icon Button -->
+              <a 
+                href={`/${lang}/ads/edit/${ad.id}`}
+                class="flex items-center justify-center w-12 h-12 rounded-full border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:scale-105 active:scale-95 transition-all dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700/80"
+                title={t['ad.details.editAd']}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+              </a>
+              
+              <!-- Share Icon Dropdown Button -->
+              <div class="relative inline-block text-left share-dropdown-wrapper">
+                <button
+                  type="button"
+                  class="w-12 h-12 rounded-2x1 border btn-share-dropdown flex items-center justify-center w-12 h-12 rounded-full  border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:scale-105 active:scale-95 transition-all dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700/80"
+                  title={t['ad.details.share']}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-share-2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                </button>
+                
+                <!-- Share Dropdown Menu -->
+                <div 
+                  class="share-dropdown-menu absolute bottom-14 ltr:left-1/2 rtl:right-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2 z-50 mb-2 w-64 rounded-2x1 border border-zinc-200/50 bg-white/95 p-2 shadow-2xl backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/95 hidden transition-all duration-200 transform scale-95 opacity-0 origin-bottom"
+                >
+                  <div class="py-1 space-y-1">
+                    <!-- WhatsApp Share Option -->
+                    <button
+                      onclick="shareAdWhatsApp()"
+                      class="flex w-full items-center gap-3 px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100/70 rounded-xl transition-colors dark:text-zinc-200 dark:hover:bg-zinc-850/60"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+                      <span>{isAr ? 'مشاركة عبر واتساب' : 'Share via WhatsApp'}</span>
+                    </button>
+
+                    <!-- Copy Link Option -->
+                    <button
+                      onclick="copyAdLink(this)"
+                      class="flex w-full items-center gap-3 px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100/70 rounded-xl transition-colors dark:text-zinc-200 dark:hover:bg-zinc-850/60"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-violet-500"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                      <span class="copy-link-text">{isAr ? 'نسخ رابط الإعلان' : 'Copy Ad Link'}</span>
+                    </button>
+
+                    <!-- Download Ad QR Code -->
+                    <a
+                      href={adQrDataUri}
+                      download={`ad-${ad.id}-qr.svg`}
+                      class="flex w-full items-center gap-3 px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100/70 rounded-xl transition-colors dark:text-zinc-200 dark:hover:bg-zinc-850/60 no-underline"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+                      <span>{isAr ? 'تحميل باركود الإعلان (QR)' : 'Download Ad QR Code'}</span>
+                    </a>
+
+                    <!-- Divider -->
+                    <div class="border-t border-zinc-100 dark:border-zinc-800/80 my-1"></div>
+
+                    <!-- Download Dark JPG -->
+                    <button
+                      onclick="downloadAdJpg('dark')"
+                      class="flex w-full items-center gap-3 px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100/70 rounded-xl transition-colors dark:text-zinc-200 dark:hover:bg-zinc-850/60"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      <span>{isAr ? 'تحميل بطاقة داكنة (JPG)' : 'Download Dark Card (JPG)'}</span>
+                    </button>
+
+                    <!-- Download Light JPG -->
+                    <button
+                      onclick="downloadAdJpg('light')"
+                      class="flex w-full items-center gap-3 px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100/70 rounded-xl transition-colors dark:text-zinc-200 dark:hover:bg-zinc-850/60"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-sky-500"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      <span>{isAr ? 'تحميل بطاقة مضيئة (JPG)' : 'Download Light Card (JPG)'}</span>
+                    </button>
+
+                    <!-- Download SVG -->
+                    <a
+                      href={`/api/ads/og/${ad.id}?theme=dark`}
+                      download={`ad-${ad.id}-dark.svg`}
+                      class="flex items-center gap-3 px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100/70 rounded-xl transition-colors dark:text-zinc-200 dark:hover:bg-zinc-850/60 no-underline"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-rose-500"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      <span>{isAr ? 'تحميل بصيغة SVG' : 'Download SVG format'}</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Delete Icon Button -->
+              <button 
+                id="btn-delete-ad"
+                class="flex items-center justify-center w-12 h-12 rounded-full border border-red-200 bg-red-50 text-red-650 hover:bg-red-150 hover:scale-105 active:scale-95 transition-all dark:border-red-900/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+                title={t['ad.details.deleteAd']}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              </button>
+            </div>
+          )}
+
+          {!isOwner && (
+            <div class="mt-4 pt-4 border-t border-zinc-200/50 dark:border-zinc-800/50 flex justify-center">
+              <!-- Share Icon Dropdown Button (full width for visitors) -->
+              <div class="relative inline-block text-left w-full share-dropdown-wrapper">
+                <button
+                  type="button"
+                  class="btn-share-dropdown flex items-center justify-center gap-2 w-full rounded-full border border-violet-200 bg-violet-50 py-3.5 text-sm font-extrabold text-violet-700 hover:bg-violet-100 hover:scale-[1.02] active:scale-[0.98] transition-all dark:border-violet-850/40 dark:bg-violet-900/20 dark:text-violet-300 dark:hover:bg-violet-900/30"
+                  title={t['ad.details.share']}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-share-2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                  <span>{t['ad.details.share']}</span>
+                </button>
+                
+                <!-- Share Dropdown Menu -->
+                <div 
+                  class="share-dropdown-menu absolute bottom-14 ltr:left-1/2 rtl:right-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2 z-50 mb-2 w-64 rounded-2x1 border border-zinc-200/50 bg-white/95 p-2 shadow-2xl backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/95 hidden transition-all duration-200 transform scale-95 opacity-0 origin-bottom"
+                >
+                  <div class="py-1 space-y-1">
+                    <!-- WhatsApp Share Option -->
+                    <button
+                      onclick="shareAdWhatsApp()"
+                      class="flex w-full items-center gap-3 px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100/70 rounded-xl transition-colors dark:text-zinc-200 dark:hover:bg-zinc-850/60"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+                      <span>{isAr ? 'مشاركة عبر واتساب' : 'Share via WhatsApp'}</span>
+                    </button>
+
+                    <!-- Copy Link Option -->
+                    <button
+                      onclick="copyAdLink(this)"
+                      class="flex w-full items-center gap-3 px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100/70 rounded-xl transition-colors dark:text-zinc-200 dark:hover:bg-zinc-850/60"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-violet-500"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                      <span class="copy-link-text">{isAr ? 'نسخ رابط الإعلان' : 'Copy Ad Link'}</span>
+                    </button>
+
+                    <!-- Divider -->
+                    <div class="border-t border-zinc-100 dark:border-zinc-800/80 my-1"></div>
+
+                    <!-- Download Dark JPG -->
+                    <button
+                      onclick="downloadAdJpg('dark')"
+                      class="flex w-full items-center gap-3 px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100/70 rounded-xl transition-colors dark:text-zinc-200 dark:hover:bg-zinc-850/60"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      <span>{isAr ? 'تحميل بطاقة داكنة (JPG)' : 'Download Dark Card (JPG)'}</span>
+                    </button>
+
+                    <!-- Download Light JPG -->
+                    <button
+                      onclick="downloadAdJpg('light')"
+                      class="flex w-full items-center gap-3 px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100/70 rounded-xl transition-colors dark:text-zinc-200 dark:hover:bg-zinc-850/60"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-sky-500"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      <span>{isAr ? 'تحميل بطاقة مضيئة (JPG)' : 'Download Light Card (JPG)'}</span>
+                    </button>
+
+                    <!-- Download SVG -->
+                    <a
+                      href={`/api/ads/og/${ad.id}?theme=dark`}
+                      download={`ad-${ad.id}-dark.svg`}
+                      class="flex items-center gap-3 px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100/70 rounded-xl transition-colors dark:text-zinc-200 dark:hover:bg-zinc-850/60 no-underline"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-rose-500"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      <span>{isAr ? 'تحميل بصيغة SVG' : 'Download SVG format'}</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+
+        <!-- Seller Profile card -->
+        <div class="rounded-3xl border border-zinc-200/50 bg-white/40 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 overflow-hidden">
+          
+          <!-- Banner -->
+          <div class="relative h-28 bg-linear-to-r from-primary/30 to-violet-500/30">
+            {sellerBanner && (
+              <img src={sellerBanner} alt="seller banner" class="w-full h-full object-cover" />
+            )}
+          </div>
+
+          <div class="px-6 pb-6">
+            <!-- Avatar overlapping banner -->
+            <div class="relative -mt-10 mb-3 flex items-end justify-between">
+              <div class="h-20 w-20 rounded-full border-4 border-white dark:border-zinc-900 overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-md">
+                {sellerAvatar 
+                  ? <img src={sellerAvatar} alt={ad.data.contact_name} class="h-full w-full object-cover" />
+                  : <div class="flex h-full w-full items-center justify-center">
+                      <User className="h-9 w-9 text-zinc-400" />
+                    </div>
+                }
+              </div>
+              <span class="flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-full">
+                <CheckCircle className="h-3 w-3" />
+                {t['ad.details.verified']}
+              </span>
+            </div>
+
+            <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-1">
+              {ad.data.contact_name}
+            </h3>
+            {city && (
+              <p class="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+                <MapPin className="h-3 w-3" />
+                {city}
+              </p>
+            )}
+
+            <!-- Social links -->
+            {(sellerInstagram || sellerFacebook || sellerTelegram || sellerWebsite) && (
+              <div class="flex flex-wrap gap-2 mb-4">
+                {sellerInstagram && (
+                  <a href={`https://instagram.com/${sellerInstagram.replace('@','')}`} target="_blank" rel="noopener noreferrer"
+                    class="flex items-center justify-center rounded-xl bg-linear-to-r from-purple-500 to-pink-500 p-2 text-white hover:opacity-90 transition" title="Instagram">
+                    <Instagram className="h-4 w-4" />
+                  </a>
+                )}
+                {sellerFacebook && (
+                  <a href={`https://facebook.com/${sellerFacebook.replace('@','')}`} target="_blank" rel="noopener noreferrer"
+                    class="flex items-center justify-center rounded-xl bg-blue-600 p-2 text-white hover:opacity-90 transition" title="Facebook">
+                    <Facebook className="h-4 w-4" />
+                  </a>
+                )}
+                {sellerTelegram && (
+                  <a href={`https://t.me/${sellerTelegram.replace('@','')}`} target="_blank" rel="noopener noreferrer"
+                    class="flex items-center justify-center rounded-xl bg-sky-500 p-2 text-white hover:opacity-90 transition" title="Telegram">
+                    <Send className="h-4 w-4" />
+                  </a>
+                )}
+                {sellerWebsite && (
+                  <a href={sellerWebsite.startsWith('http') ? sellerWebsite : `https://${sellerWebsite}`} target="_blank" rel="noopener noreferrer"
+                    class="flex items-center justify-center rounded-xl bg-zinc-800 p-2 text-white hover:opacity-90 transition dark:bg-zinc-700" title={t['ad.details.website']}>
+                    <Globe className="h-4 w-4" />
+                  </a>
+                )}
+              </div>
+            )}
+
+            <!-- Google Maps button -->
+            {sellerGmaps && (
+              <a href={sellerGmaps} target="_blank" rel="noopener noreferrer"
+                class="flex items-center gap-2 w-full mb-3 rounded-full border border-zinc-200 py-2.5 px-4 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 transition dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                <MapPin className="h-4 w-4 text-red-500" />
+                <span>{t['ad.details.gmaps']}</span>
+                <ExternalLink className="h-3.5 w-3.5 ms-auto opacity-50" />
+              </a>
+            )}
+
+            <!-- View All button -->
+            <a 
+              href={ad.data.seller_username ? `/${lang}/@${ad.data.seller_username}` : `/${lang}/seller/${ad.data.user_id || ad.data.contact_phone}`}
+              class="flex items-center justify-center gap-2 w-full rounded-full border border-zinc-200 py-3 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 transition dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              {t['ad.details.viewAllSeller']}
+            </a>
+          </div>
+        </div>
+
+        <!-- QR Codes Card -->
+        <div class="rounded-3xl border border-zinc-200/50 bg-white/40 p-6 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 space-y-6">
+          <h4 class="text-sm font-bold text-zinc-950 dark:text-zinc-50 flex items-center gap-2 pb-3 border-b border-zinc-200/60 dark:border-zinc-800/60">
+            <QrCode className="h-4 w-4 text-primary" />
+            <span>{t['gen.lt.____slug_.11']}</span>
+          </h4>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <!-- Ad QR Code -->
+            <div class="flex flex-col items-center text-center space-y-2">
+              <div class="w-full aspect-square max-w-30 bg-white rounded-xl p-1 shadow-xs border border-zinc-100 dark:border-zinc-800">
+                <Fragment set:html={adQrSvg} />
+              </div>
+              <span class="text-[10px] font-bold text-zinc-650 dark:text-zinc-400">{t['gen.lt.____slug_.12']}</span>
+            </div>
+            
+            <!-- Seller QR Code -->
+            <div class="flex flex-col items-center text-center space-y-2">
+              <div class="w-full aspect-square max-w-30 bg-white rounded-xl p-1 shadow-xs border border-zinc-100 dark:border-zinc-800">
+                <Fragment set:html={sellerQrSvg} />
+              </div>
+              <span class="text-[10px] font-bold text-zinc-650 dark:text-zinc-400">{t['gen.lt.____slug_.13']}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </Container>
+
+  <!-- Custom Delete Modal -->
+  {isOwner && (
+    <div id="delete-modal" class="fixed inset-0 z-[1000] hidden items-center justify-center bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+      <div class="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transform scale-95 transition-transform duration-300">
+        <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 mx-auto">
+          <svg class="h-6 w-6 text-red-600 dark:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <h3 class="text-lg font-bold text-center text-zinc-900 dark:text-zinc-50 mb-2">
+          {t['ad.details.deleteConfirmTitle']}
+        </h3>
+        <p class="text-sm text-center text-zinc-500 dark:text-zinc-400 mb-6">
+          {t['ad.details.deleteConfirmBody']}
+        </p>
+        
+        <!-- Error Message Container -->
+        <div id="delete-error" class="hidden mb-4 p-3 rounded-xl bg-red-50 text-red-600 text-xs text-center border border-red-100 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-400"></div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <button id="btn-cancel-delete" class="rounded-full border border-zinc-200 bg-white py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700/80">
+            {t['ad.details.cancel']}
+          </button>
+          <button id="btn-confirm-delete" class="flex items-center justify-center rounded-full bg-red-500 py-2.5 text-sm font-bold text-white hover:bg-red-600 shadow-md">
+            {t['ad.details.confirmDelete']}
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+
+  <script define:vars={{ adId: ad.id, lang, confirmDeleteText: t['ad.details.confirmDelete'] }}>
+    const btnDelete = document.getElementById('btn-delete-ad');
+    const modal = document.getElementById('delete-modal');
+    const btnCancel = document.getElementById('btn-cancel-delete');
+    const btnConfirm = document.getElementById('btn-confirm-delete');
+    const errorContainer = document.getElementById('delete-error');
+    const modalInner = modal?.querySelector('div.relative');
+
+    function openModal() {
+      if(!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        if(modalInner) {
+          modalInner.classList.remove('scale-95');
+          modalInner.classList.add('scale-100');
+        }
+      }, 10);
+    }
+
+    function closeModal() {
+      if(!modal) return;
+      modal.classList.add('opacity-0');
+      if(modalInner) {
+        modalInner.classList.remove('scale-100');
+        modalInner.classList.add('scale-95');
+      }
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }, 300);
+    }
+
+    if (btnDelete) btnDelete.addEventListener('click', openModal);
+    if (btnCancel) btnCancel.addEventListener('click', closeModal);
+
+    if(btnConfirm) {
+      btnConfirm.addEventListener('click', async () => {
+        btnConfirm.innerHTML = '<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+        btnConfirm.disabled = true;
+        
+        if (errorContainer) errorContainer.classList.add('hidden');
+ 
+        try {
+          const res = await fetch('/api/delete-ad', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId: adId })
+          });
+          const data = await res.json();
+          if(data.success) {
+            window.location.href = `/${lang}/seller/dashboard`;
+          } else {
+            throw new Error(data.error || 'Failed to delete');
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Error occurred';
+          if (errorContainer) {
+            errorContainer.textContent = message;
+            errorContainer.classList.remove('hidden');
+          }
+          btnConfirm.innerHTML = confirmDeleteText;
+          btnConfirm.disabled = false;
+        }
+      });
+    }
+  </script>
+
+  <script>
+    // Card download handler using dynamic SVG backend renderer (solves Arabic letter shaper issue)
+    const downloadBtn = document.getElementById('btn-download-card');
+    downloadBtn?.addEventListener('click', async () => {
+      const card = document.getElementById('no-image-fallback-card');
+      if (!card) return;
+      
+      const adId = card.dataset.id;
+      const isDark = document.documentElement.classList.contains('dark');
+      const theme = isDark ? 'dark' : 'light';
+      
+      downloadBtn.setAttribute('disabled', 'true');
+      
+      try {
+        const svgUrl = `/api/ads/og/${adId}?theme=${theme}`;
+        const res = await fetch(svgUrl);
+        if (!res.ok) throw new Error('Failed to fetch card SVG');
+        
+        const svgText = await res.text();
+        const parser = new DOMParser();
+        const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+        const svgElement = svgDoc.documentElement;
+        svgElement.setAttribute('width', '1200');
+        svgElement.setAttribute('height', '630');
+        
+        const serializer = new XMLSerializer();
+        const serializedSvg = serializer.serializeToString(svgElement);
+        
+        const svgBlob = new Blob([serializedSvg], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+        
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = blobUrl;
+        
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 1200;
+          canvas.height = 630;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            const jpegUrl = canvas.toDataURL('image/jpeg', 0.95);
+            const a = document.createElement('a');
+            a.href = jpegUrl;
+            a.download = `ad-${adId}-${theme}.jpg`;
+            a.click();
+          }
+          URL.revokeObjectURL(blobUrl);
+          downloadBtn.removeAttribute('disabled');
+        };
+        
+        img.onerror = (e) => {
+          console.error('Image loading error:', e);
+          URL.revokeObjectURL(blobUrl);
+          downloadBtn.removeAttribute('disabled');
+        };
+      } catch (err) {
+        console.error('Failed to download card:', err);
+        downloadBtn.removeAttribute('disabled');
+      }
+    });
+  </script>
+
+  <script define:vars={{ adId: ad.id, adTitle: title, priceStr: formattedPrice, lang, isAr }}>
+    // Global functions for inline onclick attributes
+    window.shareAdWhatsApp = function() {
+      const adUrl = window.location.origin + '/' + lang + '/ads/' + adId;
+      const whatsappMsgTemplate = isAr 
+        ? "تفضل إعلان ${adTitle} بسعر ${priceStr}:\n${adUrl}" 
+        : "Check out this ad: ${adTitle} for ${priceStr}:\n${adUrl}";
+      const msg = whatsappMsgTemplate
+        .replace('${adTitle}', adTitle)
+        .replace('${priceStr}', priceStr)
+        .replace('${adUrl}', adUrl);
+      window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    };
+
+    window.copyAdLink = function(btn) {
+      const adUrl = window.location.origin + '/' + lang + '/ads/' + adId;
+      navigator.clipboard.writeText(adUrl).then(() => {
+        const textSpan = btn.querySelector('.copy-link-text') || btn.querySelector('span');
+        const origText = textSpan.textContent;
+        textSpan.textContent = isAr ? 'تم النسخ!' : 'Copied!';
+        textSpan.style.color = '#10b981';
+        setTimeout(() => {
+          textSpan.textContent = origText;
+          textSpan.style.color = '';
+        }, 2000);
+      });
+    };
+
+    window.downloadAdJpg = async function(theme) {
+      const svgUrl = `/api/ads/og/${adId}?theme=${theme}&t=${Date.now()}`;
+      try {
+        const res = await fetch(svgUrl);
+        if (!res.ok) throw new Error('Failed to fetch card SVG');
+        const svgText = await res.text();
+        
+        const parser = new DOMParser();
+        const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+        const svgElement = svgDoc.documentElement;
+        svgElement.setAttribute('width', '1200');
+        svgElement.setAttribute('height', '630');
+        
+        const serializer = new XMLSerializer();
+        const serializedSvg = serializer.serializeToString(svgElement);
+        const svgBlob = new Blob([serializedSvg], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+        
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = blobUrl;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 1200;
+          canvas.height = 630;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            const jpegUrl = canvas.toDataURL('image/jpeg', 0.95);
+            const a = document.createElement('a');
+            a.href = jpegUrl;
+            a.download = `meamart-ad-${adId}-${theme}.jpg`;
+            a.click();
+          }
+          URL.revokeObjectURL(blobUrl);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(blobUrl);
+          const a = document.createElement('a');
+          a.href = svgUrl;
+          a.download = `meamart-ad-${adId}-${theme}.svg`;
+          a.click();
+        };
+      } catch (err) {
+        console.error(err);
+        const a = document.createElement('a');
+        a.href = svgUrl;
+        a.download = `meamart-ad-${adId}-${theme}.svg`;
+        a.click();
+      }
+    };
+
+    // Dropdown Toggles
+    document.querySelectorAll('.btn-share-dropdown').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const menu = btn.nextElementSibling;
+        if (menu) {
+          const isHidden = menu.classList.contains('hidden');
+          document.querySelectorAll('.share-dropdown-menu').forEach((m) => {
+            m.classList.add('hidden');
+            m.classList.add('opacity-0');
+            m.classList.add('scale-95');
+          });
+          if (isHidden) {
+            menu.classList.remove('hidden');
+            setTimeout(() => {
+              menu.classList.remove('opacity-0');
+              menu.classList.remove('scale-95');
+              menu.classList.add('opacity-100');
+              menu.classList.add('scale-100');
+            }, 10);
+          }
+        }
+      });
+    });
+
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.share-dropdown-menu').forEach((m) => {
+        m.classList.add('opacity-0');
+        m.classList.add('scale-95');
+        setTimeout(() => {
+          m.classList.add('hidden');
+        }, 150);
+      });
+    });
+  </script>
+</Layout>
+
+

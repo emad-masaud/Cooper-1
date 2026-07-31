@@ -1,143 +1,437 @@
 ---
-import Header from '~/components/layout/Header.astro';
-import Footer from '~/components/layout/Footer.astro';
-import Analytics from '~/components/common/Analytics.astro';
-import SEO from '~/components/layout/SEO.astro';
-import Schema from '~/components/layout/Schema.astro';
-import CookieConsent from '~/components/common/CookieConsent.astro';
-import '../styles/global.css';
-import AnnouncementBanner from '~/components/sections/AnnouncementBanner.astro';
+import Header from "~/components/layout/Header.astro";
+import Footer from "~/components/layout/Footer.astro";
+import Analytics from "~/components/common/Analytics.astro";
+import SEO from "~/components/layout/SEO.astro";
+import Schema from "~/components/layout/Schema.astro";
+import CookieConsent from "~/components/common/CookieConsent.astro";
+import GoogleOneTap from "~/components/auth/GoogleOneTap.astro";
+import SessionTimeout from "~/components/auth/SessionTimeout";
+import "../styles/global.css";
+import AnnouncementBanner from "~/components/sections/AnnouncementBanner.astro";
+import { LayoutGrid, MessageCircle, ShoppingBag } from "lucide-react";
 
 interface Props {
-	title?: string;
-	description?: string;
-    image?: string;
-    imageWidth?: number;
-    imageHeight?: number;
-    imageAlt?: string;
-    article?: boolean;
-    noindex?: boolean;
-    nofollow?: boolean;
-    availableLangs?: string[];
-    children?: any;
+  title?: string;
+  description?: string;
+  image?: string;
+  article?: boolean;
+  noindex?: boolean;
+  nofollow?: boolean;
+  availableLangs?: string[];
+  children?: any;
+  hideMobileBottomNav?: boolean;
 }
 
-import { Font } from "astro:assets";
-import { siteConfig, ACTION_LINKS } from '~/site.config';
+import { siteConfig, ACTION_LINKS } from "~/site.config";
+import { getActiveConfig } from "~/utils/config";
+import { getMeamartSession } from "~/utils/session";
 
-
-import { defaultLang } from '~/i18n/ui';
-import { isRtl, useTranslations } from '~/i18n/utils';
+import { defaultLang } from "~/i18n/ui";
+import { isRtl, useTranslations } from "~/i18n/utils";
+import { getRelativeLocaleUrl } from "astro:i18n";
 
 const { lang = defaultLang } = Astro.params;
 const t = useTranslations(lang);
-const brandName = (t as any)['brand.name'] || siteConfig.name;
+const activeConfig = await getActiveConfig(Astro);
+const brandName = (t as any)["brand.name"] || activeConfig.name;
 
-const { 
-    title = brandName, 
-    description = siteConfig.description, 
-    image, 
-    imageWidth,
-    imageHeight,
-    imageAlt,
-    article = false,
-    noindex = false,
-    nofollow = false,
-    availableLangs
+const {
+  title = brandName,
+  description = activeConfig.description,
+  image,
+  article = false,
+  noindex = false,
+  nofollow = false,
+  availableLangs,
+  hideMobileBottomNav = false,
 } = Astro.props;
 
-const dir = isRtl(lang) ? 'rtl' : 'ltr';
+let userSession = Astro.locals.userSession;
+if (!userSession) {
+  userSession = await getMeamartSession(Astro);
+}
+
+const dir = isRtl(lang) ? "rtl" : "ltr";
 ---
 
 <!doctype html>
 <html lang={lang} dir={dir}>
-	<head>
-		<meta charset="UTF-8" />
-        <Font cssVariable="--font-inter" />
-        <Font cssVariable="--font-outfit" />
-        <SEO 
-            title={title} 
-            description={description} 
-            image={image} 
-            imageWidth={imageWidth}
-            imageHeight={imageHeight}
-            imageAlt={imageAlt}
-            article={article} 
-            noindex={noindex}
-            nofollow={nofollow}
-        />
-        <Schema item={{
+  <head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+    <SEO
+      title={title}
+      description={description}
+      image={image}
+      article={article}
+      noindex={noindex}
+      nofollow={nofollow}
+      config={activeConfig}
+    />
+    <Schema
+      item={{
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        name: brandName,
+        url: Astro.site,
+        logo: new URL(activeConfig.logo.src, Astro.site).toString(),
+        sameAs: [
+          ACTION_LINKS.social?.twitter,
+          ACTION_LINKS.social?.github,
+          ACTION_LINKS.social?.linkedin,
+          ACTION_LINKS.social?.facebook,
+        ].filter(Boolean),
+      }}
+    />
+    {
+      Astro.url.pathname !== "/" && (
+        <Schema
+          item={{
             "@context": "https://schema.org",
-            "@type": "Organization",
-            "name": brandName,
-            "url": Astro.site,
-            "logo": new URL(siteConfig.logo.src, Astro.site).toString(),
-            "sameAs": [
-                ACTION_LINKS.social?.twitter,
-                ACTION_LINKS.social?.github,
-                ACTION_LINKS.social?.linkedin,
-                ACTION_LINKS.social?.facebook
-            ].filter(Boolean)
-        }} />
-         {Astro.url.pathname !== '/' && (
-            <Schema item={{
-                "@context": "https://schema.org",
-                "@type": "BreadcrumbList",
-                "itemListElement": Astro.url.pathname.split('/').filter(Boolean).map((part, index, arr) => ({
-                    "@type": "ListItem",
-                    "position": index + 1,
-                    "name": part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' '),
-                    "item": new URL(arr.slice(0, index + 1).join('/'), Astro.site).toString()
-                }))
-            }} />
-        )}
-        <style is:global define:vars={{ primary: siteConfig.primaryColor }}>
-          :theme {
-            --color-primary: var(--primary);
-          }
-        </style>
-        <script is:inline>
-            const getTheme = () => {
-                if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
-                    return localStorage.getItem('theme');
-                }
-                if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    return 'dark';
-                }
-                return 'light';
-            };
-            const theme = getTheme();
-            if (theme === 'dark') {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
+            "@type": "BreadcrumbList",
+            itemListElement: Astro.url.pathname
+              .split("/")
+              .filter(Boolean)
+              .map((part, index, arr) => ({
+                "@type": "ListItem",
+                position: index + 1,
+                name:
+                  part.charAt(0).toUpperCase() +
+                  part.slice(1).replace(/-/g, " "),
+                item: new URL(
+                  arr.slice(0, index + 1).join("/"),
+                  Astro.site,
+                ).toString(),
+              })),
+          }}
+        />
+      )
+    }
+    <style is:global define:vars={{ primary: activeConfig.primaryColor }}>
+      :theme {
+        --color-primary: var(--primary);
+      }
+    </style>
+    <script is:inline>
+      const getTheme = () => {
+        if (
+          typeof localStorage !== "undefined" &&
+          localStorage.getItem("theme")
+        ) {
+          return localStorage.getItem("theme");
+        }
+        return "light";
+      };
+      const theme = getTheme();
+      if (theme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    </script>
+    {
+      /* Pagefind UI assets are now lazily loaded in the Search component to improve LCP/FCP */
+    }
+    {
+      /* siteConfig.search.enabled && import.meta.env.PROD && (
+            <>
+                <link href="/pagefind/pagefind-ui.css" rel="stylesheet" />
+                <script src="/pagefind/pagefind-ui.js" is:inline></script>
+            </>
+        ) */
+    }
+    <Analytics config={activeConfig} />
+    <slot name="head" />
+  </head>
+  <body
+    class={`min-h-screen flex flex-col antialiased bg-background text-foreground selection:bg-primary selection:text-white md:pb-0 ${hideMobileBottomNav ? 'pb-0' : 'pb-16'}`}
+  >
+    {userSession && (
+      <SessionTimeout 
+        client:load 
+        timeoutMinutes={userSession.is_admin ? 15 : 30} 
+        lang={lang} 
+      />
+    )}
+    <script is:inline>
+      (function() {
+        const getCookie = (name) => {
+          const value = `; ${document.cookie}`;
+          const parts = value.split(`; ${name}=`);
+          if (parts.length === 2) {
+            const raw = parts.pop()?.split(';').shift();
+            if (!raw) return null;
+            let decoded = decodeURIComponent(raw);
+            if (decoded.includes('%')) {
+              try {
+                decoded = decodeURIComponent(decoded);
+              } catch (e) {}
             }
-        </script>
-        <Analytics />
-        <slot name="head" />
-		</head>
-		<body class="min-h-screen flex flex-col antialiased bg-background text-foreground selection:bg-primary selection:text-white">
-        <div class="fixed inset-0 z-[-1] bg-background"></div>
+            return decoded;
+          }
+          return null;
+        };
+        window.getCookie = getCookie;
 
-        <div class="fixed top-0 w-full z-50 flex flex-col items-stretch">
-            {siteConfig.announcement?.enabled && (
-                <AnnouncementBanner 
-                    id={siteConfig.announcement.id}
-                    message={t['announcement.message']}
-                    link={
-                        siteConfig.announcement.localizeLink && siteConfig.announcement.link
-                            ? `/${lang}${siteConfig.announcement.link.startsWith('/') ? siteConfig.announcement.link : '/' + siteConfig.announcement.link}`
-                            : siteConfig.announcement.link
-                    }
-                    linkText={t['announcement.action']}
-                />
-            )}
-            <Header availableLangs={availableLangs} />
+        const checkAndRestoreSession = () => {
+          const urlParams = new URLSearchParams(window.location.search);
+          const sessionFromUrl = urlParams.get('session');
+          
+          if (sessionFromUrl) {
+            try {
+              const session = JSON.parse(decodeURIComponent(sessionFromUrl));
+              localStorage.setItem('meamart_session_active', JSON.stringify(session));
+              localStorage.setItem('meamart_session_timestamp', new Date().toISOString());
+              console.log('[SessionPersistence] ✅ Session restored from URL:', session.email);
+              window.dispatchEvent(new Event('storage'));
+              window.dispatchEvent(new CustomEvent('session-update'));
+              window.history.replaceState({}, document.title, window.location.pathname);
+              return;
+            } catch (e) {
+              console.error('[SessionPersistence] Failed to restore session from URL:', e);
+            }
+          }
+
+          const sessionCookie = getCookie('meamart_session');
+          if (sessionCookie) {
+            try {
+              const session = JSON.parse(sessionCookie);
+              const existingSession = localStorage.getItem('meamart_session_active');
+              
+              if (!existingSession || JSON.stringify(JSON.parse(existingSession)) !== JSON.stringify(session)) {
+                localStorage.setItem('meamart_session_active', JSON.stringify(session));
+                localStorage.setItem('meamart_session_timestamp', new Date().toISOString());
+                console.log('[SessionPersistence] ✅ LocalStorage synced with Cookie session:', session.email);
+                window.dispatchEvent(new Event('storage'));
+                window.dispatchEvent(new CustomEvent('session-update'));
+              }
+            } catch (e) {
+              console.error('[SessionPersistence] Failed to parse session cookie:', e);
+            }
+          } else {
+            const existingSession = localStorage.getItem('meamart_session_active');
+            if (existingSession) {
+              localStorage.removeItem('meamart_session_active');
+              localStorage.removeItem('meamart_session_timestamp');
+              console.log('[SessionPersistence] ❌ No session cookie found. Cleared localStorage.');
+              window.dispatchEvent(new Event('storage'));
+              window.dispatchEvent(new CustomEvent('session-update'));
+            }
+          }
+        };
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', checkAndRestoreSession);
+        } else {
+          checkAndRestoreSession();
+        }
+
+        const handleVisibilityChange = () => {
+          if (document.visibilityState === 'visible') {
+            checkAndRestoreSession();
+          }
+        };
+        
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+      })();
+    </script>
+    <div class="fixed inset-0 z-[-1] bg-background"></div>
+
+    <div class="fixed top-0 w-full z-50 flex flex-col items-stretch">
+      {
+        activeConfig.announcement?.enabled && (
+          <AnnouncementBanner
+            id={activeConfig.announcement.id}
+            message={t["announcement.message"]}
+            link={
+              activeConfig.announcement.localizeLink &&
+              activeConfig.announcement.link
+                ? getRelativeLocaleUrl(lang, activeConfig.announcement.link)
+                : activeConfig.announcement.link
+            }
+            linkText={t["announcement.action"]}
+          />
+        )
+      }
+      <Header availableLangs={availableLangs} />
+    </div>
+    <main data-pagefind-body>
+      <slot />
+    </main>
+    <CookieConsent />
+    {!Astro.url.pathname.includes('/admin') && <GoogleOneTap />}
+
+
+    <!-- Sticky Mobile Bottom Nav Bar -->
+    {
+      !hideMobileBottomNav && (
+        <div
+          class="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/80 dark:bg-zinc-950/80 backdrop-blur-lg border-t border-zinc-200/80 dark:border-zinc-800/80 shadow-[0_-4px_20px_0_rgba(0,0,0,0.05)] pb-safe"
+        >
+          <div class="h-16 flex items-center justify-around px-6">
+            <!-- Right/Left (RTL/LTR): Dashboard -->
+            <a
+              href={`/${lang}/seller/dashboard`}
+              class="flex flex-col items-center justify-center text-zinc-500 hover:text-primary dark:text-zinc-400 dark:hover:text-white transition-colors w-12 h-12 rounded-xl active:bg-zinc-100 dark:active:bg-zinc-900"
+              aria-label="Dashboard"
+            >
+              <LayoutGrid class="w-6 h-6" />
+            </a>
+
+            <!-- Center: WhatsApp Support -->
+            {
+              (() => {
+                const whatsappNum = activeConfig.contact.phone.main.replace(
+                  /[^0-9]/g,
+                  "",
+                );
+                const whatsappUrl = `https://wa.me/${whatsappNum}?text=${encodeURIComponent(
+                  lang === "ar"
+                    ? "مرحباً، أود الاستفسار عن منصة ميمارت."
+                    : "Hello, I would like to inquire about MeaMart.",
+                )}`;
+                return (
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-650 active:scale-95 transition-all"
+                    aria-label="WhatsApp Support"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      class="h-6 w-6 flex-shrink-0 fill-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
+                    </svg>
+                  </a>
+                );
+              })()
+            }
+
+            <!-- Left/Right (RTL/LTR): Marketplace -->
+            <a
+              href={`/${lang}/ads`}
+              class="flex flex-col items-center justify-center text-zinc-500 hover:text-primary dark:text-zinc-400 dark:hover:text-white transition-colors w-12 h-12 rounded-xl active:bg-zinc-100 dark:active:bg-zinc-900"
+              aria-label="Marketplace"
+            >
+              <ShoppingBag class="w-6 h-6" />
+            </a>
+          </div>
         </div>
-		<main>
-			<slot />
-		</main>
-        <CookieConsent />
-		<Footer />
-	</body>
+      )
+    }
+    <!-- Global Alert Override -->
+    <script>
+      (function() {
+        const originalAlert = window.alert;
+        window.alert = function(message) {
+          try {
+            // Remove existing toast if any
+            const existingToast = document.querySelector(".custom-global-toast");
+            if (existingToast) existingToast.remove();
+
+            const toast = document.createElement("div");
+            // Determine if error
+            const msgStr = typeof message === 'string' ? message : String(message);
+            const isError = msgStr.toLowerCase().includes('error') || msgStr.includes('فشل') || msgStr.includes('خطأ');
+            
+            const bgClass = isError ? "bg-red-600/95" : "bg-zinc-950/95 dark:bg-white/95 dark:text-zinc-950";
+            const textClass = isError ? "text-white" : "text-white dark:text-zinc-950";
+            const icon = isError 
+              ? `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>`
+              : `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`;
+
+            toast.className = `custom-global-toast fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 px-4 py-3 ${textClass} text-sm font-semibold rounded-2xl shadow-2xl border border-black/5 dark:border-white/10 flex items-center gap-3 z-[99999] backdrop-blur-xl transition-all duration-300 transform translate-y-8 opacity-0 pointer-events-none ${bgClass}`;
+            
+            toast.innerHTML = `${icon}<span>${msgStr}</span>`;
+            document.body.appendChild(toast);
+            
+            // Trigger animation
+            toast.offsetHeight;
+            toast.classList.remove("translate-y-8", "opacity-0");
+
+            setTimeout(() => {
+              toast.classList.add("translate-y-8", "opacity-0");
+              setTimeout(() => {
+                if (toast.parentNode) toast.remove();
+              }, 300);
+            }, 3000);
+          } catch(e) {
+            originalAlert(message);
+          }
+        };
+      })();
+    </script>
+    
+    <!-- Global Select Initialization -->
+    <script>
+      import TomSelect from "tom-select";
+      
+      // Override HTMLSelectElement value setter to auto-sync TomSelect
+      const selectDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+      if (selectDescriptor && selectDescriptor.set && selectDescriptor.get) {
+        Object.defineProperty(HTMLSelectElement.prototype, 'value', {
+          get: selectDescriptor.get,
+          set: function(val) {
+            selectDescriptor.set.call(this, val);
+            if (this.tomselect) {
+              this.tomselect.setValue(val, true); // true = silent (no change event fired again)
+            }
+          },
+          enumerable: selectDescriptor.enumerable,
+          configurable: selectDescriptor.configurable
+        });
+      }
+
+      function initSelects(nodeList) {
+        nodeList.forEach((el) => {
+          if (el.tagName === 'SELECT' && el.classList.contains('form-select') && !el.tomselect) {
+            // Check if it should be skipped
+            if (el.dataset.noTomselect === "true") return;
+            
+            try {
+              new TomSelect(el, {
+                create: false,
+                maxOptions: null, // show all
+                plugins: ['dropdown_input'],
+                render: {
+                  no_results: function(data, escape) {
+                    return '<div class="no-results px-4 py-2 text-zinc-500 text-sm font-semibold">لا توجد نتائج مطابقة</div>';
+                  }
+                }
+              });
+            } catch(e) {
+              console.warn("Failed to initialize TomSelect on", el, e);
+            }
+          }
+        });
+      }
+
+      // Initialize on load
+      document.addEventListener("DOMContentLoaded", () => {
+        initSelects(document.querySelectorAll('select.form-select'));
+      });
+
+      // Observe dynamically added selects
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === 1) { // Element node
+              if (node.tagName === 'SELECT' && node.classList.contains('form-select')) {
+                initSelects([node]);
+              } else {
+                initSelects(node.querySelectorAll('select.form-select'));
+              }
+            }
+          });
+        });
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true });
+    </script>
+  </body>
 </html>

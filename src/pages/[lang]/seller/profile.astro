@@ -1,0 +1,994 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import Button from "~/components/ui/Button.astro";
+import PhoneInput from "~/components/ui/PhoneInput.astro";
+import { getMeamartSession } from "~/utils/session";
+import { kvGet } from "~/utils/kv";
+import SellerSubNav from "~/components/seller/SellerSubNav.astro";
+import SecurityOnboardingTasksClient from "~/components/security/SecurityOnboardingTasksClient";
+import { defaultLang, languages } from "~/i18n/ui";
+import { isRtl, useTranslations } from "~/i18n/utils";
+import {
+  User,
+  Image,
+  Instagram,
+  Facebook,
+  Send,
+  Globe,
+  MapPin,
+  ArrowRight,
+  ArrowLeft,
+  KeyRound,
+  Copy,
+} from "lucide-react";
+import { signJWT } from "~/utils/jwt";
+
+export const prerender = false;
+
+const { lang = defaultLang } = Astro.params;
+const rtl = isRtl(lang);
+const t = useTranslations(lang);
+
+// Get session
+let session = await getMeamartSession(Astro);
+if (!session) {
+  return Astro.redirect(`/${lang}/login`);
+}
+
+const sellerPhone = session.phone || "";
+const cleanSellerPhone = sellerPhone.replace(/[^0-9]/g, "");
+
+// Fetch existing ads to load current profile details from the most recent ad metadata
+let existingAvatar = session.avatar || "";
+let existingBanner = session.banner || "";
+let instagram = session.instagram || "";
+let facebook = session.facebook || "";
+let telegram = session.telegram || "";
+let website = session.website || "";
+let gmaps = session.gmaps || "";
+let username = session.username || "";
+
+let adsCount = 0;
+let productsCount = 0;
+let addressesCount = 0;
+
+try {
+  const { createSupabaseServerClient } = await import("~/utils/supabase");
+  const supabase = createSupabaseServerClient(Astro);
+
+  const { count, error } = await supabase
+    .from("ads")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", session.id);
+
+  if (!error && count !== null) {
+    adsCount = count;
+  }
+
+  // Fetch full seller profile from Supabase table so avatar/banner show up after clearing cookies
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", session.id)
+    .maybeSingle();
+
+  if (profileRow) {
+    const meta = profileRow.metadata || {};
+    existingAvatar = existingAvatar || profileRow.avatar || meta.seller_avatar || "";
+    existingBanner = existingBanner || profileRow.banner || meta.seller_banner || "";
+    instagram = instagram || profileRow.instagram || meta.seller_instagram || "";
+    facebook = facebook || profileRow.facebook || meta.seller_facebook || "";
+    telegram = telegram || profileRow.telegram || meta.seller_telegram || "";
+    website = website || profileRow.website || meta.seller_website || "";
+    gmaps = gmaps || profileRow.gmaps || meta.seller_gmaps || "";
+    username = username || profileRow.username || "";
+  }
+} catch (e) {
+  console.error("Failed to fetch ads count or profile from Supabase:", e);
+}
+
+try {
+  const userId = session.id;
+  const kvKey = `seller_addresses_${userId}`;
+  const dataStr = await kvGet(Astro, kvKey);
+  if (dataStr) {
+    addressesCount = JSON.parse(dataStr).length;
+  }
+} catch (e) {
+  console.error("Failed to fetch addresses count for profile:", e);
+}
+
+// No WP apiToken needed anymore
+
+const nameParts = (session.name || "").split(" ");
+const fName = nameParts[0] || "";
+const lName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+---
+
+<Layout
+  title={t["seller.profile.title"] || "الملف الشخصي | MeaMart"}
+  description={t["seller.profile.desc"] ||
+    "تعديل الملف الشخصي والمعلومات الشخصية للبائع"}
+>
+  <PageHeader
+    title={t["seller.profile.header"] || "إعدادات الملف الشخصي"}
+    description={t["seller.profile.desc"] ||
+      "تحديث الغلاف والأفاتار ومواقع التواصل والخريطة"}
+  />
+
+  <Container class="pb-24 max-w-7xl">
+    <SellerSubNav
+      lang={lang}
+      activeTab="profile"
+      adsCount={adsCount}
+      productsCount={productsCount}
+      addressesCount={addressesCount}
+    />
+
+    <div
+      class="rounded-3xl border border-zinc-200/50 bg-white/60 shadow-xl backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 overflow-hidden"
+    >
+      <!-- Status Box -->
+      <div
+        id="form-status"
+        class="hidden p-4 m-6 mb-0 rounded-7xl text-sm font-semibold"
+      >
+      </div>
+
+      <div class="px-6 md:px-8">
+        <SecurityOnboardingTasksClient
+          client:load
+          lang={lang}
+          initialSession={session}
+        />
+      </div>
+
+      <form id="profile-form" class="space-y-8 p-6 md:p-8">
+        <!-- Banner Upload -->
+        <div class="space-y-2">
+          <label
+            class="block text-xs font-bold text-zinc-600 dark:text-zinc-400"
+          >
+            {
+              t["seller.profile.banner"] ||
+                "صورة الترويسة (المقاس الموصى به مثل فيسبوك: 820×312 بكسل)"
+            }
+          </label>
+          <div
+            class="relative w-full aspect-[820/312] max-h-64 rounded-xl bg-zinc-100 dark:bg-zinc-800 overflow-hidden border border-zinc-200 dark:border-zinc-800 group"
+          >
+            <img
+              id="banner-preview"
+              src={existingBanner || "/logo.svg"}
+              class={`w-full h-full object-cover ${!existingBanner ? "opacity-25 grayscale" : ""}`}
+              alt="Profile Cover Banner"
+            />
+            <div
+              class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+            >
+              <label
+                for="banner-file-input"
+                class="cursor-pointer text-white flex flex-col items-center gap-1"
+              >
+                <Image className="h-8 w-8" />
+                <span class="text-xs font-semibold"
+                  >{rtl ? "تغيير الغلاف" : "Change Cover"}</span
+                >
+              </label>
+            </div>
+            <input
+              type="file"
+              id="banner-file-input"
+              accept="image/*"
+              class="hidden"
+            />
+          </div>
+        </div>
+
+        <!-- Avatar Upload -->
+        <div class="space-y-2">
+          <label
+            class="block text-xs font-bold text-zinc-600 dark:text-zinc-400"
+          >
+            {t["seller.profile.avatar"] || "الصورة الشخصية (الأفاتار)"}
+          </label>
+          <div class="flex items-center gap-5">
+            <div
+              class="relative h-20 w-20 rounded-3xl bg-zinc-100 dark:bg-zinc-800 overflow-hidden border border-zinc-200 dark:border-zinc-800 shrink-0 group"
+            >
+              <img
+                id="avatar-preview"
+                src={existingAvatar || ""}
+                class={`w-full h-full object-cover ${!existingAvatar ? "hidden" : ""}`}
+                alt="Profile Avatar"
+              />
+              <div
+                id="avatar-placeholder"
+                class={`h-full w-full flex items-center justify-center text-zinc-400 ${existingAvatar ? "hidden" : ""}`}
+              >
+                <User className="h-8 w-8" />
+              </div>
+              <div
+                class="absolute inset-0 bg-black/45 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <label
+                  for="avatar-file-input"
+                  class="cursor-pointer text-white flex flex-col items-center"
+                >
+                  <Image className="h-5 w-5" />
+                </label>
+              </div>
+              <input
+                type="file"
+                id="avatar-file-input"
+                accept="image/*"
+                class="hidden"
+              />
+            </div>
+            <div>
+              <p class="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                {session.name}
+              </p>
+              <p class="text-[10px] text-zinc-400 mt-0.5">
+                {session.phone || session.email}
+              </p>
+            </div>
+          </div>
+        </div>
+        <!-- Details Fields -->
+        <div
+          class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-zinc-200/50 dark:border-zinc-800/50"
+        >
+          <!-- First Name -->
+          <div class="space-y-2">
+            <label
+              for="seller_first_name"
+              class="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400"
+            >
+              <User className="h-4 w-4 text-primary" />
+              <span>{rtl ? "الاسم الأول" : "First Name"}</span>
+            </label>
+            <input
+              type="text"
+              id="seller_first_name"
+              name="seller_first_name"
+              value={fName}
+              placeholder={rtl ? "الاسم الأول" : "First Name"}
+              required
+              class="form-input"
+            />
+          </div>
+
+          <!-- Last Name -->
+          <div class="space-y-2">
+            <label
+              for="seller_last_name"
+              class="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400"
+            >
+              <User className="h-4 w-4 text-primary" />
+              <span>{rtl ? "الاسم الأخير" : "Last Name"}</span>
+            </label>
+            <input
+              type="text"
+              id="seller_last_name"
+              name="seller_last_name"
+              value={lName}
+              placeholder={rtl ? "الاسم الأخير" : "Last Name"}
+              required
+              class="form-input"
+            />
+          </div>
+
+          <!-- Gender -->
+          <div class="space-y-2">
+            <label
+              for="seller_gender"
+              class="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400"
+            >
+              <User className="h-4 w-4 text-primary" />
+              <span>{rtl ? "الجنس" : "Gender"}</span>
+            </label>
+            <select
+              id="seller_gender"
+              name="seller_gender"
+              class="form-select"
+            >
+              <option value="" selected={!session.gender}
+                >{rtl ? "غير محدد" : "Not specified"}</option
+              >
+              <option value="male" selected={session.gender === "male"}
+                >{rtl ? "ذكر" : "Male"}</option
+              >
+              <option value="female" selected={session.gender === "female"}
+                >{rtl ? "أنثى" : "Female"}</option
+              >
+            </select>
+          </div>
+
+          <!-- Email -->
+          <div class="space-y-2">
+            <label
+              for="seller_email"
+              class="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400"
+            >
+              <User className="h-4 w-4 text-primary" />
+              <span>{rtl ? "البريد الإلكتروني" : "Email Address"}</span>
+            </label>
+            <input
+              type="email"
+              id="seller_email"
+              name="seller_email"
+              value={session.email || ""}
+              placeholder="example@meamart.com"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Public Link -->
+          <div class="space-y-2">
+            <label class="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
+              <Globe className="h-4 w-4 text-primary" />
+              <span>{rtl ? "رابط صفحتك المخصص" : "Your Public Profile Link"}</span>
+            </label>
+            <div class="relative flex items-center">
+              <input
+                type="text"
+                readonly
+                id="public_profile_link"
+                value={session.username ? `https://meamart.com/${lang}/@${session.username}` : `https://meamart.com/${lang}/seller/`}
+                class="w-full rounded-full border border-zinc-200 bg-zinc-50/80 py-3 pl-4 pr-12 text-sm outline-hidden text-zinc-500 cursor-not-allowed dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-400"
+              />
+              <!-- Small script to fetch the shortcode if no username is set -->
+              {!session.username && (
+                <script is:inline>
+                  document.addEventListener('DOMContentLoaded', async () => {
+                    try {
+                      const res = await fetch('/api/qr');
+                      if (res.ok) {
+                        const data = await res.json();
+                        const sellerLink = data.qrLinks.find(l => l.entity_type === 'seller');
+                        if (sellerLink && sellerLink.short_code) {
+                          const input = document.getElementById('public_profile_link');
+                          if (input) input.value = `https://meamart.com/${document.documentElement.lang || 'ar'}/seller/${sellerLink.short_code}`;
+                        }
+                      }
+                    } catch(e) {}
+                  });
+                </script>
+              )}
+            </div>
+            <p class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">
+              {rtl ? "هذا هو الرابط الذي يراه الناس عند زيارة صفحتك أو مسح الباركود." : "This is the link people see when they visit your page or scan your QR code."}
+            </p>
+          </div>
+
+          <!-- Custom Username -->
+          <div class="space-y-2">
+            <label
+              for="seller_username"
+              class="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400"
+            >
+              <User className="h-4 w-4 text-primary" />
+              <span>{rtl ? "اسم المستخدم المخصص" : "Custom Username"}</span>
+            </label>
+            <div class="relative flex items-center">
+              <span class="absolute left-4 text-zinc-400 text-sm font-bold"
+                >@</span
+              >
+              <input
+                type="text"
+                id="seller_username"
+                name="seller_username"
+                value={username}
+                placeholder="username"
+                pattern="^[a-zA-Z0-9_\\.]+$"
+                class="w-full rounded-full border border-zinc-200 bg-white/80 py-3 pl-8 pr-4 text-sm outline-hidden focus:border-primary focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-950/80 dark:focus:border-zinc-650 dark:text-zinc-50"
+              />
+            </div>
+            <p class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">
+              {
+                rtl
+                  ? "إدخال اسم مستخدم يتيح لك رابطاً مخصصاً لصفحتك: meamart.com/@username"
+                  : "Entering a username gives you a custom link to your page: meamart.com/@username"
+              }
+            </p>
+            <p
+              class="text-[11px] font-bold text-amber-600 dark:text-amber-400 mt-1"
+            >
+              {
+                rtl
+                  ? "تنبيه هام: تعديل اسم المستخدم يغير رابط صفحتك وعنوان الباركود الأساسي، وسيتطلب طباعة باركود جديد."
+                  : "Important note: Changing your username changes your profile URL and main QR code."
+              }
+            </p>
+          </div>
+
+          <!-- Phone Number / WhatsApp -->
+          <PhoneInput
+            name="seller_phone"
+            label={rtl ? "رقم الواتساب / الهاتف" : "WhatsApp / Phone Number"}
+            value={sellerPhone}
+            required={true}
+            placeholder="500000000"
+          />
+
+          <!-- Instagram -->
+          <div class="space-y-2">
+            <label
+              for="seller_instagram"
+              class="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400"
+            >
+              <Instagram className="h-4 w-4 text-pink-500" />
+              <span>{t["seller.profile.instagram"] || "حساب انستقرام"}</span>
+            </label>
+            <input
+              type="text"
+              id="seller_instagram"
+              name="seller_instagram"
+              value={instagram}
+              placeholder="@username"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Facebook -->
+          <div class="space-y-2">
+            <label
+              for="seller_facebook"
+              class="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400"
+            >
+              <Facebook className="h-4 w-4 text-blue-600" />
+              <span>{t["seller.profile.facebook"] || "حساب فيسبوك"}</span>
+            </label>
+            <input
+              type="text"
+              id="seller_facebook"
+              name="seller_facebook"
+              value={facebook}
+              placeholder="username"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Telegram -->
+          <div class="space-y-2">
+            <label
+              for="seller_telegram"
+              class="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400"
+            >
+              <Send className="h-4 w-4 text-sky-500" />
+              <span>{t["seller.profile.telegram"] || "حساب تليجرام"}</span>
+            </label>
+            <input
+              type="text"
+              id="seller_telegram"
+              name="seller_telegram"
+              value={telegram}
+              placeholder="username"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Website -->
+          <div class="space-y-2">
+            <label
+              for="seller_website"
+              class="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400"
+            >
+              <Globe className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+              <span>{t["seller.profile.website"] || "الموقع الإلكتروني"}</span>
+            </label>
+            <input
+              type="url"
+              id="seller_website"
+              name="seller_website"
+              value={website}
+              placeholder="https://example.com"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Google Maps Link -->
+          <div class="md:col-span-2 space-y-2">
+            <label
+              for="seller_gmaps"
+              class="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400"
+            >
+              <MapPin className="h-4 w-4 text-red-500" />
+              <span>{t["seller.profile.gmaps"] || "رابط موقع قوقل ماب"}</span>
+            </label>
+            <input
+              type="url"
+              id="seller_gmaps"
+              name="seller_gmaps"
+              value={gmaps}
+              placeholder="https://maps.google.com/?q=..."
+              class="form-input"
+            />
+          </div>
+        </div>
+
+        <!-- Manduca Advanced Settings Card -->
+        <div
+          class="mt-8 pt-6 border-t border-zinc-200/60 dark:border-zinc-800/60"
+        >
+          <h3
+            class="text-sm font-bold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center gap-2"
+          >
+            <span class="h-2 w-2 rounded-full bg-primary"></span>
+            <span
+              >{
+                rtl
+                  ? "إعدادات المتجر والخصوصية المتقدمة"
+                  : "Advanced Store & Privacy Settings"
+              }</span
+            >
+          </h3>
+          <div class="space-y-3">
+            <label
+              class="flex items-center justify-between p-4 rounded-full border border-zinc-200/70 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-zinc-900/40 cursor-pointer"
+            >
+              <div class="space-y-0.5">
+                <p class="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                  {
+                    rtl
+                      ? "إظهار رقم الجوال للعامة في المتجر وصفحة الباركود"
+                      : "Show phone number publicly on store & QR page"
+                  }
+                </p>
+                <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {
+                    rtl
+                      ? "يسمح للزوار بالتواصل معك عبر الاتصال الهاتفي المباشر"
+                      : "Allows visitors to call you directly"
+                  }
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                defaultChecked
+                class="h-5 w-9 appearance-none rounded-full bg-zinc-300 dark:bg-zinc-700 checked:bg-primary transition-colors cursor-pointer relative before:absolute before:top-0.5 before:left-0.5 before:h-4 before:w-4 before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-4"
+              />
+            </label>
+
+            <label
+              class="flex items-center justify-between p-4 rounded-full border border-zinc-200/70 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-zinc-900/40 cursor-pointer"
+            >
+              <div class="space-y-0.5">
+                <p class="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                  {
+                    rtl
+                      ? "تفعيل زر المراسلة السريعة عبر واتساب في صفحات الإعلانات"
+                      : "Enable direct WhatsApp chat button on ad pages"
+                  }
+                </p>
+                <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {
+                    rtl
+                      ? "ينقل العملاء مباشرة لمحادثتك على واتساب دون حفظ الرقم"
+                      : "Opens direct chat without saving your phone number"
+                  }
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                defaultChecked
+                class="h-5 w-9 appearance-none rounded-full bg-zinc-300 dark:bg-zinc-700 checked:bg-primary transition-colors cursor-pointer relative before:absolute before:top-0.5 before:left-0.5 before:h-4 before:w-4 before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-4"
+              />
+            </label>
+
+            <label
+              class="flex items-center justify-between p-4 rounded-full border border-zinc-200/70 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-zinc-900/40 cursor-pointer"
+            >
+              <div class="space-y-0.5">
+                <p class="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                  {
+                    rtl
+                      ? "إشعارات مسح الباركود وزيارات المتجر"
+                      : "QR scan and store visit alerts"
+                  }
+                </p>
+                <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {
+                    rtl
+                      ? "تلقي تنبيهات وإحصائيات عند تفاعل العملاء مع روابطك"
+                      : "Receive updates when customers scan your QR links"
+                  }
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                defaultChecked
+                class="h-5 w-9 appearance-none rounded-full bg-zinc-300 dark:bg-zinc-700 checked:bg-primary transition-colors cursor-pointer relative before:absolute before:top-0.5 before:left-0.5 before:h-4 before:w-4 before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-4"
+              />
+            </label>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button
+          type="submit"
+          id="save-profile-btn"
+          class="w-full mt-6 rounded-full bg-primary py-4 text-sm font-bold text-white shadow-lg transition-all hover:bg-primary/90 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+        >
+          {t["seller.profile.save"]}
+        </button>
+      </form>
+    </div>
+
+    <!-- Danger Zone -->
+    <div
+      class="mt-8 rounded-3xl border border-red-200/80 bg-red-50/50 p-6 dark:border-red-900/40 dark:bg-red-950/20 shadow-sm"
+    >
+      <div
+        class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+      >
+        <div>
+          <h3 class="text-sm font-bold text-red-600 dark:text-red-400">
+            {t["seller.profile.danger_zone"]}
+          </h3>
+          <p class="text-xs text-red-700/80 dark:text-red-300/80 mt-1 max-w-xl">
+            {t["seller.profile.delete_desc"]}
+          </p>
+        </div>
+        <button
+          type="button"
+          id="btn-delete-account"
+          class="shrink-0 rounded-full border border-red-300 bg-red-600 px-5 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:bg-red-700 hover:scale-[1.02] active:scale-[0.98] dark:border-red-700 dark:bg-red-600 cursor-pointer"
+        >
+          {t["seller.profile.delete_account"]}
+        </button>
+      </div>
+    </div>
+  </Container>
+
+  <!-- Email OTP Verification Modal -->
+  <div
+    id="otp-modal"
+    class="fixed inset-0 z-[1000] hidden items-center justify-center bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-300"
+  >
+    <div
+      class="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transform scale-95 transition-transform duration-300"
+    >
+      <h3
+        class="text-lg font-bold text-center text-zinc-900 dark:text-zinc-50 mb-2"
+      >
+        {rtl ? "تأكيد البريد الإلكتروني" : "Verify Email"}
+      </h3>
+      <p
+        id="otp-instruction"
+        class="text-sm text-center text-zinc-500 dark:text-zinc-400 mb-6"
+      >
+        {
+          rtl
+            ? "لقد أرسلنا رمز تحقق إلى البريد الجديد. يرجى إدخاله هنا."
+            : "We sent a verification code to your new email. Please enter it here."
+        }
+      </p>
+
+      <!-- Error Message Container -->
+      <div
+        id="otp-error"
+        class="hidden mb-4 p-3 rounded-xl bg-red-50 text-red-600 text-xs text-center border border-red-100 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-400"
+      >
+      </div>
+
+      <div class="mb-6">
+        <input
+          type="text"
+          id="otp-input"
+          placeholder="123456"
+          maxlength="6"
+          class="w-full text-center tracking-widest text-2xl font-bold rounded-full border border-zinc-200 bg-zinc-50 py-4 px-4 outline-hidden focus:border-primary focus:ring-1 focus:ring-primary dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-650 dark:text-zinc-50"
+        />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <button
+          id="btn-cancel-otp"
+          class="rounded-full border border-zinc-200 bg-white py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700/80"
+        >
+          {rtl ? "إلغاء" : "Cancel"}
+        </button>
+        <button
+          id="btn-verify-otp"
+          class="flex items-center justify-center rounded-full bg-primary py-2.5 text-sm font-bold text-white hover:bg-primary/90 shadow-md"
+        >
+          {rtl ? "تأكيد" : "Verify"}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script define:vars={{ isAr: rtl, sessionEmail: session.email || "" }}>
+    const form = document.getElementById("profile-form");
+    const statusDiv = document.getElementById("form-status");
+    const saveBtn = document.getElementById("save-profile-btn");
+    const avatarInput = document.getElementById("avatar-file-input");
+    const bannerInput = document.getElementById("banner-file-input");
+    const avatarPreview = document.getElementById("avatar-preview");
+    const avatarPlaceholder = document.getElementById("avatar-placeholder");
+    const bannerPreview = document.getElementById("banner-preview");
+
+    // Handle Image Previews
+    avatarInput?.addEventListener("change", () => {
+      if (avatarInput.files && avatarInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (avatarPreview && avatarPlaceholder) {
+            avatarPreview.src = e.target?.result;
+            avatarPreview.classList.remove("hidden");
+            avatarPlaceholder.classList.add("hidden");
+          }
+        };
+        reader.readAsDataURL(avatarInput.files[0]);
+      }
+    });
+
+    bannerInput?.addEventListener("change", () => {
+      if (bannerInput.files && bannerInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (bannerPreview) {
+            bannerPreview.src = e.target?.result;
+            bannerPreview.classList.remove("opacity-25", "grayscale");
+          }
+        };
+        reader.readAsDataURL(bannerInput.files[0]);
+      }
+    });
+
+    // Handle Submit
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      saveBtn.disabled = true;
+      saveBtn.textContent = "...";
+
+      const savingMsg = isAr ? "جاري الحفظ..." : "Saving...";
+      const successMsg = isAr ? "تم التحديث بنجاح!" : "Updated successfully!";
+      const errorMsg = isAr ? "حدث خطأ:" : "Error:";
+
+      statusDiv.className =
+        "p-4 m-6 mb-0 rounded-full text-sm font-semibold bg-zinc-100 text-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-300";
+      statusDiv.textContent = savingMsg;
+      statusDiv.classList.remove("hidden");
+
+      const payload = {
+        seller_email: form.elements.namedItem("seller_email")?.value || "",
+        seller_name: (
+          form.elements.namedItem("seller_name")?.value ||
+          (form.elements.namedItem("seller_first_name")?.value || "") +
+            " " +
+            (form.elements.namedItem("seller_last_name")?.value || "")
+        ).trim(),
+        seller_gender: form.elements.namedItem("seller_gender")?.value || "",
+        seller_phone:
+          form.elements.namedItem("seller_phone")?.value ||
+          (form.elements.namedItem("seller_phone_code")?.value || "") +
+            (form.elements.namedItem("seller_phone_number")?.value || ""),
+        seller_instagram:
+          form.elements.namedItem("seller_instagram")?.value || "",
+        seller_facebook:
+          form.elements.namedItem("seller_facebook")?.value || "",
+        seller_telegram:
+          form.elements.namedItem("seller_telegram")?.value || "",
+        seller_website: form.elements.namedItem("seller_website")?.value || "",
+        seller_gmaps: form.elements.namedItem("seller_gmaps")?.value || "",
+        seller_avatar: avatarPreview?.src.startsWith("http")
+          ? avatarPreview.src
+          : "",
+        seller_banner:
+          bannerPreview?.src.startsWith("http") &&
+          !bannerPreview.src.includes("logo.svg")
+            ? bannerPreview.src
+            : "",
+        seller_username:
+          form.elements.namedItem("seller_username")?.value || "",
+      };
+
+      // Parse image files if uploaded
+      if (avatarInput.files && avatarInput.files[0]) {
+        const file = avatarInput.files[0];
+        const reader = new FileReader();
+        const loaded = new Promise((resolve) => {
+          reader.onload = () => {
+            resolve({
+              name: file.name,
+              type: file.type,
+              base64: reader.result.split(",")[1],
+            });
+          };
+          reader.readAsDataURL(file);
+        });
+        payload.avatarFile = await loaded;
+      }
+
+      if (bannerInput.files && bannerInput.files[0]) {
+        const file = bannerInput.files[0];
+        const reader = new FileReader();
+        const loaded = new Promise((resolve) => {
+          reader.onload = () => {
+            resolve({
+              name: file.name,
+              type: file.type,
+              base64: reader.result.split(",")[1],
+            });
+          };
+          reader.readAsDataURL(file);
+        });
+        payload.bannerFile = await loaded;
+      }
+
+      const submitProfileUpdate = async () => {
+        try {
+          const res = await fetch("/api/update-profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          const resData = await res.json();
+          if (resData.success) {
+            statusDiv.className =
+              "p-4 m-6 mb-0 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300";
+            statusDiv.textContent = successMsg;
+
+            localStorage.removeItem("meamart_profile_data");
+            const localProfile = {
+              seller_avatar: resData.avatar || payload.seller_avatar || "",
+              seller_banner: resData.banner || payload.seller_banner || "",
+              seller_instagram: payload.seller_instagram,
+              seller_facebook: payload.seller_facebook,
+              seller_telegram: payload.seller_telegram,
+              seller_website: payload.seller_website,
+              seller_gmaps: payload.seller_gmaps,
+            };
+            localStorage.setItem(
+              "meamart_profile_data",
+              JSON.stringify(localProfile),
+            );
+
+            if (resData.session) {
+              const maxAge = 30 * 24 * 60 * 60;
+              const isSecure = window.location.protocol === "https:";
+              document.cookie = `meamart_session=${encodeURIComponent(JSON.stringify(resData.session))}; path=/; max-age=${maxAge}; ${isSecure ? "secure;" : ""} samesite=lax`;
+            }
+
+            setTimeout(() => {
+              window.location.href = window.location.href;
+            }, 800);
+          } else {
+            throw new Error(resData.error || "Failed to update profile");
+          }
+        } catch (err) {
+          statusDiv.className =
+            "p-4 m-6 mb-0 rounded-full text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+          statusDiv.textContent =
+            errorMsg + " " + (err.message || "Unknown error");
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = isAr ? "حفظ التغييرات" : "Save Changes";
+        }
+      };
+
+      // OTP Flow if email changed
+      if (payload.seller_email && payload.seller_email !== sessionEmail) {
+        try {
+          const otpRes = await fetch("/api/auth/email/send-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: payload.seller_email }),
+          });
+
+          const otpData = await otpRes.json();
+          if (!otpData.success) {
+            throw new Error(otpData.error || "Failed to send OTP");
+          }
+
+          // Show Modal
+          const otpModal = document.getElementById("otp-modal");
+          const btnCancelOtp = document.getElementById("btn-cancel-otp");
+          const btnVerifyOtp = document.getElementById("btn-verify-otp");
+          const otpInput = document.getElementById("otp-input");
+          const otpError = document.getElementById("otp-error");
+
+          otpModal.classList.remove("hidden");
+
+          // Listeners for OTP modal
+          const handleCancel = () => {
+            otpModal.classList.add("hidden");
+            saveBtn.disabled = false;
+            saveBtn.textContent = t["gen.lt.profile.3"];
+            cleanup();
+          };
+
+          const handleVerify = async () => {
+            const otp = otpInput.value?.trim();
+            if (!otp) {
+              otpError.textContent = isAr ? "الرجاء إدخال رمز التحقق" : "Please enter the verification code";
+              return;
+            }
+
+            btnVerifyOtp.disabled = true;
+            btnVerifyOtp.textContent = "...";
+
+            try {
+              const verifyRes = await fetch("/api/auth/email/verify-otp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: payload.seller_email, otp }),
+              });
+
+              const verifyData = await verifyRes.json();
+              if (!verifyData.success) {
+                throw new Error(verifyData.error || "Invalid OTP");
+              }
+
+              // OTP verified, submit profile update
+              otpModal.classList.add("hidden");
+              cleanup();
+              await submitProfileUpdate();
+            } catch (e) {
+              otpError.textContent = e.message || "Verification failed";
+              btnVerifyOtp.disabled = false;
+              btnVerifyOtp.textContent = isAr ? "تأكيد" : "Verify";
+            }
+          };
+
+          const cleanup = () => {
+            btnCancelOtp.removeEventListener("click", handleCancel);
+            btnVerifyOtp.removeEventListener("click", handleVerify);
+          };
+
+          btnCancelOtp.addEventListener("click", handleCancel);
+          btnVerifyOtp.addEventListener("click", handleVerify);
+        } catch (err) {
+          statusDiv.className =
+            "p-4 m-6 mb-0 rounded-full text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+          statusDiv.textContent = `${errorMsg} ${err.message}`;
+          saveBtn.disabled = false;
+          saveBtn.textContent = isAr ? "حفظ التغييرات" : "Save Changes";
+        }
+      } else {
+        await submitProfileUpdate();
+      }
+    });
+
+    const deleteBtn = document.getElementById("btn-delete-account");
+    deleteBtn?.addEventListener("click", async () => {
+      const confirmMsg = isAr
+        ? "هل أنت متأكد من رغبتك في حذف حسابك نهائياً؟ اكتب كلمة (حذف) لتأكيد العملية."
+        : "Are you sure you want to permanently delete your account? Type (DELETE) to confirm.";
+      const targetWord = isAr ? "حذف" : "DELETE";
+      const userRes = window.prompt(confirmMsg);
+      if (
+        userRes &&
+        userRes.trim().toLowerCase() === targetWord.toLowerCase()
+      ) {
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = "...";
+        try {
+          const res = await fetch("/api/delete-account", { method: "POST" });
+          const data = await res.json();
+          if (data.success) {
+            window.location.href = isAr ? "/ar" : "/en";
+          } else {
+            alert(data.error || "فشل حذف الحساب");
+            deleteBtn.disabled = false;
+            deleteBtn.textContent = isAr
+              ? "حذف الحساب نهائياً"
+              : "Delete Account Permanently";
+          }
+        } catch (e) {
+          alert("حدث خطأ في الاتصال");
+          deleteBtn.disabled = false;
+          deleteBtn.textContent = isAr
+            ? "حذف الحساب نهائياً"
+            : "Delete Account Permanently";
+        }
+      }
+    });
+  </script>
+</Layout>

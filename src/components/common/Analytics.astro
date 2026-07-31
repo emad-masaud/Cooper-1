@@ -1,54 +1,187 @@
 ---
+/**
+ * Analytics.astro
+ * ───────────────────────────────────────────────────────────────────
+ * مركز تتبع الزوار — يدعم:
+ *   • Google Tag Manager (GTM) — الأشمل، يغطي GA4 + Pixels + Events
+ *   • Google Analytics 4 (مستقل)
+ *   • Meta / Facebook Pixel
+ *   • Snapchat Pixel
+ *   • TikTok Pixel
+ *   • Rybbit Analytics
+ *   • Umami Analytics
+ *
+ * طريقة التفعيل: عدّل site.config.ts فقط
+ * ───────────────────────────────────────────────────────────────────
+ */
+interface Props {
+  config?: any;
+}
+
 import { siteConfig } from '~/site.config';
 
-const { vendors, alwaysLoad } = siteConfig.analytics;
+const { config = siteConfig } = Astro.props;
+const { vendors, alwaysLoad } = config.analytics;
+const { gtm, facebookPixel, snapchatPixel, tiktokPixel } = config.marketing;
 ---
 
-<script is:inline define:vars={{ vendors, alwaysLoad }}>
-  const loadScripts = () => {
-    // Prevent duplicate loading
-    if (window.analyticsLoaded) return;
-    window.analyticsLoaded = true;
+<!-- ── Google Tag Manager (HEAD) ──────────────────────────────────── -->
+{gtm?.enabled && gtm?.id && (
+  <script
+    is:inline
+    define:vars={{ gtmId: gtm.id }}
+  >{`
+    (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;
+    j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
+    f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');
+  `}</script>
+)}
 
-    // Google Analytics 4
-    if (vendors.googleAnalytics?.enabled && vendors.googleAnalytics?.id) {
-        const gaScript = document.createElement('script');
-        gaScript.async = true;
-        gaScript.src = `https://www.googletagmanager.com/gtag/js?id=${vendors.googleAnalytics.id}`;
-        document.head.appendChild(gaScript);
+<!-- ── Analytics & Pixel Scripts (consent-aware) ─────────────────── -->
+<script is:inline define:vars={{ vendors, alwaysLoad, facebookPixel, snapchatPixel, tiktokPixel }}>
+  // Initialize dataLayer and gtag globally immediately
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = window.gtag || function() { window.dataLayer.push(arguments); };
 
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', vendors.googleAnalytics.id);
+  if (!window.__analyticsSetupDone) {
+    window.__analyticsSetupDone = true;
+
+    const loadAnalytics = () => {
+      if (window.__analyticsLoaded) return;
+      window.__analyticsLoaded = true;
+
+      // ── Google Analytics 4 (مستقل بدون GTM) ──────────────────────
+      if (vendors.googleAnalytics?.enabled && vendors.googleAnalytics?.id) {
+        const s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + vendors.googleAnalytics.id;
+        document.head.appendChild(s);
+        
+        window.gtag('js', new Date());
+        window.gtag('config', vendors.googleAnalytics.id, {
+          page_path: window.location.pathname
+        });
+      }
+
+      // ── Meta / Facebook Pixel ──────────────────────────────────────
+      if (facebookPixel?.enabled && facebookPixel?.id) {
+        !function(f,b,e,v,n,t,s){
+          if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+          n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+          if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+          n.queue=[];t=b.createElement(e);t.async=!0;
+          t.src=v;s=b.getElementsByTagName(e)[0];
+          s.parentNode.insertBefore(t,s)
+        }(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+        fbq('init', facebookPixel.id);
+        fbq('track', 'PageView');
+      }
+
+      // ── Snapchat Pixel ─────────────────────────────────────────────
+      if (snapchatPixel?.enabled && snapchatPixel?.id) {
+        (function(win, doc, sdk) {
+          if (win.snaptr) return;
+          var tr = win.snaptr = function() {
+            tr.handleRequest? tr.handleRequest.apply(tr, arguments) : tr.queue.push(arguments);
+          };
+          tr.queue = [];
+          var s = doc.createElement('script');
+          s.async = true;
+          s.src = sdk;
+          doc.head.appendChild(s);
+        })(window, document, 'https://sc-static.net/scevent.min.js');
+        snaptr('init', snapchatPixel.id, { user_email: '' });
+        snaptr('track', 'PAGE_VIEW');
+      }
+
+      // ── TikTok Pixel ───────────────────────────────────────────────
+      if (tiktokPixel?.enabled && tiktokPixel?.id) {
+        !function (w, d, t) {
+          w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];
+          ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"];
+          ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};
+          for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);
+          ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};
+          ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{};ttq._i[e]=[];ttq._i[e]._u=r;ttq._t=ttq._t||{};ttq._t[e]=+new Date;ttq._o=ttq._o||{};ttq._o[e]=n||{};n=document.createElement("script");n.type="text/javascript";n.async=!0;n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
+          ttq.load(tiktokPixel.id);
+          ttq.page();
+        }(window, document, 'ttq');
+      }
+
+      // ── Rybbit Analytics ───────────────────────────────────────────
+      if (vendors.rybbit?.enabled && vendors.rybbit?.id) {
+        var s = document.createElement('script');
+        s.defer = true;
+        s.setAttribute('data-site-id', vendors.rybbit.id);
+        s.src = vendors.rybbit.src || 'https://app.rybbit.io/api/script.js';
+        document.head.appendChild(s);
+      }
+
+      // ── Umami Analytics ────────────────────────────────────────────
+      if (vendors.umami?.enabled && vendors.umami?.id) {
+        var s = document.createElement('script');
+        s.defer = true;
+        s.setAttribute('data-website-id', vendors.umami.id);
+        s.src = vendors.umami.src || 'https://analytics.umami.is/script.js';
+        document.head.appendChild(s);
+      }
+    };
+
+    // Load immediately if alwaysLoad is true, or if consent was accepted
+    if (alwaysLoad || localStorage.getItem('cookie_consent') === 'accepted') {
+      loadAnalytics();
     }
 
-    // Rybbit Analytics
-    if (vendors.rybbit?.enabled && vendors.rybbit?.id) {
-        const rybbitScript = document.createElement('script');
-        rybbitScript.defer = true;
-        rybbitScript.setAttribute('data-site-id', vendors.rybbit.id);
-        rybbitScript.src = vendors.rybbit.src || 'https://app.rybbit.io/api/script.js';
-        document.head.appendChild(rybbitScript);
-    }
+    // Wait for cookie consent event
+    window.addEventListener('consent:granted', loadAnalytics);
 
-    // Umami Analytics
-    if (vendors.umami?.enabled && vendors.umami?.id) {
-        const umamiScript = document.createElement('script');
-        umamiScript.defer = true;
-        umamiScript.setAttribute('data-website-id', vendors.umami.id);
-        umamiScript.src = vendors.umami.src || 'https://analytics.umami.is/script.js';
-        document.head.appendChild(umamiScript);
-    }
-  };
-
-  // Check for force load or existing consent
-  if (alwaysLoad || localStorage.getItem('cookie_consent') === 'accepted') {
-    loadScripts();
+    // Track page views on Astro View Transitions navigation
+    document.addEventListener('astro:page-load', () => {
+      // If analytics already loaded, track new page view
+      if (window.__analyticsLoaded) {
+        if (vendors.googleAnalytics?.enabled && vendors.googleAnalytics?.id) {
+          window.gtag('event', 'page_view', {
+            page_path: window.location.pathname,
+            page_title: document.title
+          });
+        }
+        if (facebookPixel?.enabled && facebookPixel?.id && window.fbq) {
+          fbq('track', 'PageView');
+        }
+        if (snapchatPixel?.enabled && snapchatPixel?.id && window.snaptr) {
+          snaptr('track', 'PAGE_VIEW');
+        }
+        if (tiktokPixel?.enabled && tiktokPixel?.id && window.ttq) {
+          ttq.page();
+        }
+      }
+    });
   }
-
-  // Listen for new consent
-  window.addEventListener('consent:granted', () => {
-    loadScripts();
-  });
 </script>
+
+<!-- ── GTM NoScript Fallback (BODY) ──────────────────────────────── -->
+{gtm?.enabled && gtm?.id && (
+  <noscript>
+    <iframe
+      src={`https://www.googletagmanager.com/ns.html?id=${gtm.id}`}
+      height="0"
+      width="0"
+      style="display:none;visibility:hidden"
+    ></iframe>
+  </noscript>
+)}
+
+<!-- ── Facebook Pixel NoScript Fallback ──────────────────────────── -->
+{facebookPixel?.enabled && facebookPixel?.id && (
+  <noscript>
+    <img
+      height="1"
+      width="1"
+      style="display:none"
+      src={`https://www.facebook.com/tr?id=${facebookPixel.id}&ev=PageView&noscript=1`}
+      alt=""
+    />
+  </noscript>
+)}

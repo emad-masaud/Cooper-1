@@ -1,0 +1,110 @@
+---
+import { useTranslations } from "~/i18n/utils";
+import { defaultLang } from "~/i18n/ui";
+import { categoriesStructure, categoryStyles } from "~/utils/categories";
+import {
+  Car,
+  Home,
+  Briefcase,
+  Wrench,
+  Smartphone,
+  Sofa,
+  ShoppingBag,
+  Baby,
+  PawPrint,
+  Dumbbell,
+  Building2,
+  UtensilsCrossed,
+  Plane,
+  Package,
+  MapPin,
+  Tag,
+} from "lucide-react";
+
+interface Props {
+  lang?: string;
+}
+
+const { lang = defaultLang } = Astro.props as Props;
+const t = useTranslations(lang);
+
+const iconComponents: Record<string, any> = {
+  Car,
+  Home,
+  Briefcase,
+  Wrench,
+  Smartphone,
+  Sofa,
+  ShoppingBag,
+  Baby,
+  PawPrint,
+  Dumbbell,
+  Building2,
+  UtensilsCrossed,
+  Plane,
+  Package,
+  MapPin,
+};
+
+const items = categoriesStructure.map((group) => {
+  const style = categoryStyles[group.key] || {
+    bg: "bg-zinc-50 dark:bg-zinc-800/30",
+    text: "text-zinc-650 dark:text-zinc-300",
+    border: "border-zinc-150 dark:border-zinc-800/30",
+    hoverBg: "group-hover:bg-zinc-600",
+    hoverText: "group-hover:text-white",
+  };
+
+  return {
+    key: group.key,
+    label: lang === "ar" ? group.labelAr : group.labelEn,
+    href: `/${lang}/ads?category=${group.key}`,
+    icon: group.icon,
+    style,
+  };
+});
+---
+
+<!-- قسم الفئات — سلايدر في الجوال وشبكة في الديسك توب -->
+<section
+  class="py-12 bg-zinc-50/50 dark:bg-zinc-900/10 border-b border-zinc-100 dark:border-zinc-800/60"
+>
+  <div class="container mx-auto px-6">
+    <div class="mb-8 flex items-center justify-between">
+      <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+        {t["categories.title"] || "الأقسام الرئيسية"}
+      </h2>
+      <a
+        href={`/${lang}/categories`}
+        class="text-sm font-semibold text-primary hover:underline"
+      >
+        {t["categories.view_all"] || "عرض الكل"}
+      </a>
+    </div>
+
+    <div
+      class="flex flex-nowrap overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-none -mx-6 px-6"
+    >
+      {
+        items.map((item) => {
+          const IconComponent = iconComponents[item.icon] || Tag;
+          return (
+            <a
+              href={item.href}
+              class="snap-start shrink-0 min-w-[105px] w-[105px] sm:min-w-[120px] sm:w-[120px] group flex flex-col items-center justify-center rounded-2xl border border-zinc-200/50 bg-white p-4 text-center transition-all duration-300 hover:border-primary/20 hover:shadow-lg dark:border-zinc-800/50 dark:bg-zinc-900/40 hover:-translate-y-1"
+            >
+              <div
+                class={`mb-3 flex h-12 w-12 items-center justify-center rounded-full border ${item.style.bg} ${item.style.text} ${item.style.border} transition-all duration-300 ${item.style.hoverBg} ${item.style.hoverText} shadow-xs`}
+              >
+                <IconComponent className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
+              </div>
+              <span class="text-xs font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-primary transition-colors line-clamp-1">
+                {item.label}
+              </span>
+            </a>
+          );
+        })
+      }
+    </div>
+  </div>
+</section>

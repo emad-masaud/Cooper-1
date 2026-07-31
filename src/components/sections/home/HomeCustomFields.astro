@@ -1,0 +1,74 @@
+---
+import { useTranslations } from '~/i18n/utils';
+
+interface FieldGroup {
+  key: string;
+  fieldKey: string;
+  fieldLabel: string;
+  value: string;
+  count: number;
+}
+
+interface Props {
+  fields?: FieldGroup[];
+  lang?: string;
+}
+
+let { fields = [], lang = 'en' } = Astro.props as Props;
+
+if (fields.length === 0) {
+  try {
+    
+    const { getCustomFieldGroups } = await import('~/utils/adGroups');
+
+    const rawPosts = [];
+    const rawAds = rawPosts.filter(p => p.isAd && p.adData);
+    const allAdsRaw = rawAds.map((p) => {
+      const data = p.adData!;
+      return {
+        id: p.slug || String(p.id),
+        data: {
+          ...data,
+          pubDate: new Date(p.date),
+        }
+      };
+    });
+    fields = getCustomFieldGroups(allAdsRaw, 10);
+  } catch (e) {
+    console.error('Failed to self-fetch custom fields:', e);
+  }
+}
+
+const t = useTranslations(lang);
+---
+
+{fields.length > 0 && (
+  <section class="py-12 bg-background">
+    <div class="container mx-auto px-4">
+      <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 class="text-3xl font-bold">{t['home.customFields.title']}</h2>
+        </div>
+        <a href={`/${lang}/ads`} class="text-sm font-semibold text-primary hover:underline">
+          {t['home.customFields.view_all']}
+        </a>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {fields.map((field) => (
+          <a
+            href={`/${lang}/ads?custom_field_${encodeURIComponent(field.fieldKey)}=${encodeURIComponent(field.value)}`}
+            class="group block rounded-3xl border border-zinc-200/70 bg-white/70 p-6 transition hover:-translate-y-1 hover:border-primary/80 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900/70"
+          >
+            <div class="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mb-2">{field.fieldLabel}</div>
+            <h3 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">{field.value}</h3>
+            <div class="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+              <span class="font-semibold text-zinc-900 dark:text-zinc-100">{field.count}</span>
+              <span>{t['home.customFields.count_label']}</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+)}

@@ -1,0 +1,39 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import SellerSubNav from "~/components/seller/SellerSubNav.astro";
+import SellerQrManagerClient from "~/components/seller/SellerQrManagerClient";
+import { getMeamartSession } from "~/utils/session";
+import { defaultLang } from "~/i18n/ui";
+import { isRtl, useTranslations } from "~/i18n/utils";
+
+export const prerender = false;
+
+const { lang = defaultLang } = Astro.params;
+const rtl = isRtl(lang);
+const t = useTranslations(lang);
+
+const rawSession = await getMeamartSession(Astro);
+const session = rawSession || {
+  id: "seller-default-user",
+  name: "المعلن",
+};
+---
+
+<Layout title={t["seller.qr.title"]} description={t["seller.qr.desc"]}>
+  <Container>
+    <div class="py-8">
+      <PageHeader
+        title={t["seller.qr.header"]}
+        description={t["seller.qr.subheader"]}
+      />
+
+      <SellerSubNav lang={lang} activeTab="qr" />
+
+      <div class="mt-8 max-w-7xl mx-auto">
+        <SellerQrManagerClient client:load lang={lang} />
+      </div>
+    </div>
+  </Container>
+</Layout>

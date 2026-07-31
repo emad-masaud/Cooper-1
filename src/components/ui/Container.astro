@@ -2,6 +2,11 @@
 import { twMerge } from 'tailwind-merge';
 import clsx from 'clsx';
 
+interface Props {
+  class?: string;
+  id?: string;
+  as?: string;
+}
 
 const { class: className, id, as: Tag = 'div' } = Astro.props;
 ---

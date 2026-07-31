@@ -1,7 +1,7 @@
 ---
-import { siteConfig, ACTION_LINKS, FOOTER_LINKS } from '~/site.config';
-import BrandIcon from '~/components/common/BrandIcon.astro';
-import { defaultLang } from '~/i18n/ui';
+import { siteConfig, NAV_LINKS, ACTION_LINKS, FOOTER_LINKS } from '~/site.config';
+import { Github, Facebook, Linkedin, Youtube } from 'lucide-react';
+import { ui, defaultLang } from '~/i18n/ui';
 import { useTranslations } from '~/i18n/utils';
 
 const today = new Date();
@@ -13,24 +13,29 @@ const t = useTranslations(lang);
   <div class="max-w-7xl mx-auto px-6">
     <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
       <div class="col-span-1 md:col-span-2 flex flex-col items-start gap-4">
-        <div class="flex flex-col gap-2">
-          <span class="text-xl font-bold font-display tracking-tight">{siteConfig.name}</span>
-          <p class="text-sm text-muted-foreground/80 max-w-xs">
+        <div class="flex flex-col gap-2 items-start">
+          <div class="flex items-center gap-2">
+            {siteConfig.logo && (
+              <>
+                <img src={siteConfig.logo.src} alt={siteConfig.logo.alt} class="h-8 w-auto rounded-lg dark:hidden block" />
+                <img src={siteConfig.logo.srcDark || siteConfig.logo.src} alt={siteConfig.logo.alt} class="h-8 w-auto rounded-lg hidden dark:block" />
+              </>
+            )}
+            <span class="text-xl font-bold font-display tracking-tight">{siteConfig.name}</span>
+          </div>
+          <p class="text-sm text-muted-foreground/80 max-w-xs mt-2">
             {t['footer.quote']}
           </p>
         </div>
 
         <div class="mt-4 w-full">
-          <div id="newsletter-title" class="text-sm font-semibold text-foreground mb-2">{t['footer.newsletter.title']}</div>
+          <h3 class="text-sm font-semibold text-foreground mb-2">{t['footer.newsletter.title']}</h3>
           <form class="flex gap-2 max-w-sm w-full">
-            <label for="newsletter-email-footer" class="sr-only">Email address</label>
+            <label for="newsletter-email" class="sr-only">Email address</label>
             <input 
-              id="newsletter-email-footer"
+              id="newsletter-email"
               type="email" 
               placeholder={t['footer.newsletter.placeholder']}
-              aria-label={t['footer.newsletter.placeholder']}
-              aria-labelledby="newsletter-title"
-              title={t['footer.newsletter.placeholder']}
               class="bg-background border border-foreground/10 rounded-full px-4 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/70 text-foreground"
             />
             <button type="submit" class="bg-foreground text-background rounded-full px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap">
@@ -42,7 +47,7 @@ const t = useTranslations(lang);
       
       {Object.entries(FOOTER_LINKS).map(([key, section]) => (
         <div>
-          <div class="font-semibold mb-4 text-foreground">{t[`footer.${key}` as keyof typeof t] || section.title}</div>
+          <h3 class="font-semibold mb-4 text-foreground">{t[`footer.${key}` as keyof typeof t] || section.title}</h3>
           <ul class="space-y-2 text-sm text-foreground/90">
             {section.links.map((link: any) => {
               
@@ -69,25 +74,34 @@ const t = useTranslations(lang);
     </div>
 
     <div class="pt-8 border-t border-foreground/10 flex flex-col md:flex-row justify-between items-center gap-4">
-      <div class="text-muted-foreground text-sm">
-        {(t['footer.copyright'] || '').replace('{year}', today.getFullYear().toString())}
+      <div class="text-muted-foreground text-sm flex flex-col sm:flex-row gap-1 sm:gap-4 items-center">
+        <span>{(t['footer.copyright'] || '').replace('{year}', today.getFullYear().toString())}</span>
+        <span class="hidden sm:inline text-foreground/20">|</span>
+        <span class="flex items-center gap-1.5">
+          {lang === 'ar' ? 'بني بحب عن طريق ميتشات' : 'Built with love by'} 
+          <a href="https://meachat.com" target="_blank" rel="noopener noreferrer" class="font-semibold hover:text-primary transition-colors text-foreground">
+            Meachat.LLC
+          </a>
+        </span>
       </div>
       
       <div class="flex gap-4">
         <a href={ACTION_LINKS.social.linkedin} target="_blank" rel="noopener noreferrer" class="text-muted-foreground hover:text-foreground transition-colors" aria-label="LinkedIn">
-          <BrandIcon icon="linkedin" className="w-5 h-5" strokeWidth={1.5} />
+          <Linkedin className="w-5 h-5" strokeWidth={1.5} />
         </a>
         <a href={ACTION_LINKS.social.youtube} target="_blank" rel="noopener noreferrer" class="text-muted-foreground hover:text-foreground transition-colors" aria-label="YouTube">
-          <BrandIcon icon="youtube" className="w-5 h-5" strokeWidth={1.5} />
+          <Youtube className="w-5 h-5" strokeWidth={1.5} />
         </a>
         <a href={ACTION_LINKS.social.github} target="_blank" rel="noopener noreferrer" class="text-muted-foreground hover:text-foreground transition-colors" aria-label="GitHub">
-          <BrandIcon icon="github" className="w-5 h-5" strokeWidth={1.5} />
+          <Github className="w-5 h-5" strokeWidth={1.5} />
         </a>
         <a href={ACTION_LINKS.social.facebook} target="_blank" rel="noopener noreferrer" class="text-muted-foreground hover:text-foreground transition-colors" aria-label="Facebook">
-          <BrandIcon icon="facebook" className="w-5 h-5" strokeWidth={1.5} />
+          <Facebook className="w-5 h-5" strokeWidth={1.5} />
         </a>
-        <a href={ACTION_LINKS.social.twitter} target="_blank" rel="noopener noreferrer" class="text-muted-foreground hover:text-foreground transition-colors" aria-label="X (Twitter)">
-          <BrandIcon icon="x" className="w-5 h-5" strokeWidth={1.5} />
+        <a href={ACTION_LINKS.social.tiktok} target="_blank" rel="noopener noreferrer" class="text-muted-foreground hover:text-foreground transition-colors" aria-label="TikTok">
+          <svg viewBox="0 0 24 24" class="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.76a4.85 4.85 0 0 1-1.01-.07Z"/>
+          </svg>
         </a>
       </div>
     </div>

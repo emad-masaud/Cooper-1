@@ -1,5 +1,4 @@
 ---
-export const prerender = true;
 import Layout from '~/layouts/Layout.astro';
 import PageHeader from '~/components/layout/PageHeader.astro';
 import Button from '~/components/ui/Button.astro';
@@ -9,7 +8,7 @@ import Grid from '~/components/ui/Grid.astro';
 import { getCollection } from 'astro:content';
 import { siteConfig } from '~/site.config';
 
-import { languages } from '~/i18n/ui';
+import { languages, defaultLang } from '~/i18n/ui';
 import { useTranslations } from '~/i18n/utils';
 
 import type { GetStaticPathsOptions, Page } from 'astro';
@@ -50,8 +49,6 @@ const t = useTranslations(lang);
              heroImage={post.data.heroImage}
              slug={`/${lang}/blog/${post.id.split('/').slice(1).join('/').replace(/\.[^/.]+$/, "")}`}
              isVideo={post.data.isVideo}
-             author={post.data.author}
-             audioUrl={post.data.audioUrl}
           />
         ))}
       </Grid>

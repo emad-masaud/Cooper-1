@@ -1,0 +1,598 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import AdminNavTabs from "~/components/admin/AdminNavTabs.astro";
+import { parseAdminSession } from "~/utils/session";
+import { defaultLang } from "~/i18n/ui";
+import { useTranslations } from "~/i18n/utils";
+import {
+  Shield as ShieldIcon,
+  Smartphone as SmartphoneIcon,
+  Key as KeyIcon,
+  Lock as LockIcon,
+  CheckCircle as CheckCircleIcon,
+  XCircle,
+} from "lucide-react";
+
+export const prerender = false;
+
+const { lang = defaultLang } = Astro.params;
+const t = useTranslations(lang);
+
+const session = await parseAdminSession(Astro.cookies, Astro.locals);
+if (!session || !session.is_admin) {
+  return Astro.redirect(`/${lang}/admin-login`);
+}
+
+// Site URL for OAuth Redirect URI
+const hostUrl = new URL(Astro.request.url);
+const forwardedHost = Astro.request.headers.get("x-forwarded-host");
+const actualHost =
+  forwardedHost || Astro.request.headers.get("host") || hostUrl.host;
+const protocol =
+  Astro.request.headers.get("x-forwarded-proto") ||
+  hostUrl.protocol.replace(":", "");
+const siteUrl =
+  process.env.SITE_URL ||
+  import.meta.env.SITE_URL ||
+  `${protocol}://${actualHost}`;
+const redirectUri = `${siteUrl}/api/auth/google/callback`;
+---
+
+<Layout
+  title="Security Settings | MeaMart"
+  description="Configure advanced security settings"
+>
+  <PageHeader
+    title={t["admin.security.title"]}
+    description={t["admin.security.desc"]}
+  />
+
+  <Container class="pb-24 max-w-full">
+    <AdminNavTabs lang={lang} activeTab="security" />
+
+    <!-- Alert Success -->
+    <div
+      id="save-success-alert"
+      class="hidden mb-6 bg-emerald-500/10 border border-emerald-500/25 p-4 rounded-full text-emerald-600 dark:text-emerald-400 text-sm font-bold items-center gap-2"
+    >
+      <CheckCircleIcon className="w-5 h-5" />
+      <span>{t["admin.security.saved"]}</span>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Main Toggles Form -->
+      <div class="lg:col-span-2 space-y-6">
+        <form id="security-form" class="space-y-6">
+          <div
+            class="rounded-3xl border border-zinc-200/50 bg-white/60 p-8 shadow-xl backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-6"
+          >
+            <h3
+              class="text-base font-extrabold text-zinc-900 dark:text-white flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-800/80 pb-3"
+            >
+              <ShieldIcon className="w-5 h-5 text-primary" />
+              <span>{t["admin.security.firewall.title"]}</span>
+            </h3>
+
+            <!-- Security Toggles -->
+            <div class="space-y-4">
+              <!-- Logged-in Devices -->
+              <div
+                class="flex items-center justify-between p-4 bg-zinc-50/50 dark:bg-zinc-950/40 rounded-full border border-zinc-100 dark:border-zinc-800"
+              >
+                <div class="space-y-0.5">
+                  <span
+                    class="text-sm font-bold text-zinc-900 dark:text-white block"
+                    >{t["admin.security.sessions.title"]}</span
+                  >
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t["admin.security.sessions.desc"]}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="toggle-sessions"
+                  class="accent-primary w-4 h-4 cursor-pointer"
+                  checked
+                />
+              </div>
+
+              <!-- Login Activity -->
+              <div
+                class="flex items-center justify-between p-4 bg-zinc-50/50 dark:bg-zinc-950/40 rounded-full border border-zinc-100 dark:border-zinc-800"
+              >
+                <div class="space-y-0.5">
+                  <span
+                    class="text-sm font-bold text-zinc-900 dark:text-white block"
+                    >{t["admin.security.logs.title"]}</span
+                  >
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t["admin.security.logs.desc"]}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="toggle-logs"
+                  class="accent-primary w-4 h-4 cursor-pointer"
+                  checked
+                />
+              </div>
+
+              <!-- Direct Login -->
+              <div
+                class="flex items-center justify-between p-4 bg-zinc-50/50 dark:bg-zinc-950/40 rounded-full border border-zinc-100 dark:border-zinc-800"
+              >
+                <div class="space-y-0.5">
+                  <span
+                    class="text-sm font-bold text-zinc-900 dark:text-white block"
+                    >{t["admin.security.directlogin.title"]}</span
+                  >
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t["admin.security.directlogin.desc"]}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="toggle-direct-login"
+                  class="accent-primary w-4 h-4 cursor-pointer"
+                  checked
+                />
+              </div>
+
+              <!-- Two-Factor Auth -->
+              <div
+                class="flex items-center justify-between p-4 bg-zinc-50/50 dark:bg-zinc-950/40 rounded-full border border-zinc-100 dark:border-zinc-800"
+              >
+                <div class="space-y-0.5">
+                  <span
+                    class="text-sm font-bold text-zinc-900 dark:text-white block"
+                    >{t["admin.security.2fa.title"]}</span
+                  >
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t["admin.security.2fa.desc"]}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="toggle-2fa"
+                  class="accent-primary w-4 h-4 cursor-pointer"
+                />
+              </div>
+
+              <!-- IP Manager -->
+              <div
+                class="flex items-center justify-between p-4 bg-zinc-50/50 dark:bg-zinc-950/40 rounded-full border border-zinc-100 dark:border-zinc-800"
+              >
+                <div class="space-y-0.5">
+                  <span
+                    class="text-sm font-bold text-zinc-900 dark:text-white block"
+                    >{t["admin.security.ipmanager.title"]}</span
+                  >
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t["admin.security.ipmanager.desc"]}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="toggle-ip-manager"
+                  class="accent-primary w-4 h-4 cursor-pointer"
+                />
+              </div>
+
+              <!-- OTP Verification -->
+              <div
+                class="flex items-center justify-between p-4 bg-zinc-50/50 dark:bg-zinc-950/40 rounded-full border border-zinc-100 dark:border-zinc-800"
+              >
+                <div class="space-y-0.5">
+                  <span
+                    class="text-sm font-bold text-zinc-900 dark:text-white block"
+                    >{t["admin.security.otp.title"]}</span
+                  >
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t["admin.security.otp.desc"]}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="toggle-otp"
+                  class="accent-primary w-4 h-4 cursor-pointer"
+                  checked
+                />
+              </div>
+
+              <!-- Email Verification -->
+              <div
+                class="flex items-center justify-between p-4 bg-zinc-50/50 dark:bg-zinc-950/40 rounded-full border border-zinc-100 dark:border-zinc-800"
+              >
+                <div class="space-y-0.5">
+                  <span
+                    class="text-sm font-bold text-zinc-900 dark:text-white block"
+                    >{t["admin.security.emailverify.title"]}</span
+                  >
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t["admin.security.emailverify.desc"]}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="toggle-email-verify"
+                  class="accent-primary w-4 h-4 cursor-pointer"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Captcha Integrations -->
+          <div
+            class="rounded-3xl border border-zinc-200/50 bg-white/60 p-8 shadow-xl backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-6"
+          >
+            <h3
+              class="text-base font-extrabold text-zinc-900 dark:text-white flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-800/80 pb-3"
+            >
+              <SmartphoneIcon className="w-5 h-5 text-primary" />
+              <span>{t["admin.security.captcha.title"]}</span>
+            </h3>
+
+            <!-- Cloudflare Turnstile -->
+            <div class="space-y-4">
+              <div
+                class="flex items-center justify-between p-4 bg-zinc-50/50 dark:bg-zinc-950/40 rounded-full border border-zinc-100 dark:border-zinc-800"
+              >
+                <div class="space-y-0.5">
+                  <span
+                    class="text-sm font-bold text-zinc-900 dark:text-white block"
+                    >{t["admin.security.turnstile.title"]}</span
+                  >
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t["admin.security.turnstile.desc"]}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="toggle-turnstile"
+                  class="accent-primary w-4 h-4 cursor-pointer"
+                />
+              </div>
+              <div id="turnstile-keys-container" class="hidden pl-6 space-y-3">
+                <div>
+                  <label
+                    class="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1"
+                    >Site Key</label
+                  >
+                  <input
+                    type="text"
+                    id="turnstile-sitekey"
+                    class="w-full rounded-xl border border-zinc-200 bg-white py-2.5 px-4 text-xs font-mono dark:border-zinc-800 dark:bg-zinc-950 dark:text-white"
+                    placeholder="0x4AAAAAAAyLp8qJ85uO7e8z"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Google reCAPTCHA -->
+            <div
+              class="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800"
+            >
+              <div
+                class="flex items-center justify-between p-4 bg-zinc-50/50 dark:bg-zinc-950/40 rounded-full border border-zinc-100 dark:border-zinc-800"
+              >
+                <div class="space-y-0.5">
+                  <span
+                    class="text-sm font-bold text-zinc-900 dark:text-white block"
+                    >{t["admin.security.recaptcha.title"]}</span
+                  >
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t["admin.security.recaptcha.desc"]}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="toggle-recaptcha"
+                  class="accent-primary w-4 h-4 cursor-pointer"
+                />
+              </div>
+              <div id="recaptcha-keys-container" class="hidden pl-6 space-y-3">
+                <div>
+                  <label
+                    class="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1"
+                    >Site Key</label
+                  >
+                  <input
+                    type="text"
+                    id="recaptcha-sitekey"
+                    class="w-full rounded-xl border border-zinc-200 bg-white py-2.5 px-4 text-xs font-mono dark:border-zinc-800 dark:bg-zinc-950 dark:text-white"
+                    placeholder="6Ld_xxxx_xxxxx_xxxxx_xxxxx"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            class="w-full rounded-full bg-primary py-4 text-sm font-bold text-white shadow-lg transition-all hover:bg-primary/90 hover:scale-[1.01] active:scale-[0.99]"
+          >
+            {t["admin.security.save"]}
+          </button>
+        </form>
+      </div>
+
+      <!-- Google OAuth Integration Info & Active Sessions -->
+      <div class="space-y-6">
+        <!-- Google OAuth Credentials -->
+        <div
+          class="rounded-3xl border border-zinc-200/50 bg-white/60 p-6 shadow-xl backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-4"
+        >
+          <h3
+            class="text-sm font-extrabold text-zinc-900 dark:text-white flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-800/80 pb-3"
+          >
+            <KeyIcon className="w-4 h-4 text-primary" />
+            <span>{t["admin.security.google.title"]}</span>
+          </h3>
+
+          <div class="space-y-3 text-xs">
+            <div>
+              <span class="block font-bold text-zinc-500 mb-1"
+                >{t["admin.security.google.clientid"]}</span
+              >
+              <div
+                class="p-3 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 break-all font-mono"
+              >
+                1087979039854-haa33086opu7q165qrpoac1s6anso15a.apps.googleusercontent.com
+              </div>
+            </div>
+            <div>
+              <span class="block font-bold text-zinc-500 mb-1"
+                >{t["admin.security.google.mapkey"]}</span
+              >
+              <div
+                class="p-3 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 break-all font-mono"
+              >
+                AIzaSyCDwx8Lxi8TTwvzxnGwkCHc6D_jzFaJyLU
+              </div>
+            </div>
+            <div>
+              <span class="block font-bold text-zinc-500 mb-1"
+                >{t["admin.security.google.redirect"]}</span
+              >
+              <div
+                class="p-3 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 break-all font-mono text-primary font-bold"
+              >
+                {redirectUri}
+              </div>
+            </div>
+            <p class="text-[10px] text-zinc-400 leading-relaxed mt-2">
+              {t["admin.security.google.note"]}
+            </p>
+          </div>
+        </div>
+
+        <!-- Active Sessions List -->
+        <div
+          class="rounded-3xl border border-zinc-200/50 bg-white/60 p-6 shadow-xl backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-4"
+        >
+          <div
+            class="flex justify-between items-center border-b border-zinc-100 dark:border-zinc-800/80 pb-3"
+          >
+            <h3
+              class="text-sm font-extrabold text-zinc-900 dark:text-white flex items-center gap-2"
+            >
+              <LockIcon className="w-4 h-4 text-primary" />
+              <span>{t["admin.security.devices.title"]}</span>
+            </h3>
+            <button
+              id="btn-revoke-sessions"
+              data-confirm={t["admin.security.revoke.confirm"]}
+              data-success={t["admin.security.revoke.success"]}
+              class="text-[10px] font-bold text-red-500 hover:bg-red-500/10 px-2.5 py-1 rounded-lg transition-all"
+            >
+              {t["admin.security.devices.revoke"]}
+            </button>
+          </div>
+
+          <div id="sessions-list" class="space-y-3">
+            <div
+              class="p-3 bg-zinc-50/50 dark:bg-zinc-950/20 border border-zinc-100 dark:border-zinc-800 rounded-xl flex items-center justify-between text-xs"
+            >
+              <div>
+                <span class="font-bold text-zinc-900 dark:text-white block"
+                  >Chrome / Windows (الرياض)</span
+                >
+                <span class="text-[10px] text-zinc-400 block font-mono mt-0.5"
+                  >IP: {actualHost}</span
+                >
+              </div>
+              <span
+                class="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[8px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/20"
+                >{t["admin.security.devices.active"]}</span
+              >
+            </div>
+            <div
+              class="session-item p-3 bg-zinc-50/50 dark:bg-zinc-950/20 border border-zinc-100 dark:border-zinc-800 rounded-xl flex items-center justify-between text-xs"
+            >
+              <div>
+                <span class="font-bold text-zinc-900 dark:text-white block"
+                  >Safari / iPhone 15 Pro (جدة)</span
+                >
+                <span class="text-[10px] text-zinc-400 block font-mono mt-0.5"
+                  >IP: 93.169.45.12</span
+                >
+              </div>
+              <span class="text-[10px] text-zinc-400"
+                >{t["admin.security.devices.3h"]}</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- Security Logs -->
+        <div
+          class="rounded-3xl border border-zinc-200/50 bg-white/60 p-6 shadow-xl backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-4"
+        >
+          <h3
+            class="text-sm font-extrabold text-zinc-900 dark:text-white flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-800/80 pb-3"
+          >
+            <ShieldIcon className="w-4 h-4 text-primary" />
+            <span>{t["admin.security.logins.title"]}</span>
+          </h3>
+
+          <div class="space-y-3">
+            <div
+              class="p-3 bg-zinc-50/50 dark:bg-zinc-950/20 border border-zinc-100 dark:border-zinc-800 rounded-xl flex justify-between items-center text-xs"
+            >
+              <div>
+                <span class="font-bold text-zinc-900 dark:text-white block"
+                  >عماد مسعود (جوجل)</span
+                >
+                <span class="text-[10px] text-zinc-400 font-mono"
+                  >IP: {actualHost}</span
+                >
+              </div>
+              <div class="text-right space-y-1">
+                <span class="text-[9px] text-zinc-400 block"
+                  >{t["admin.security.logins.justnow"]}</span
+                >
+                <span
+                  class="bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border border-emerald-500/20 text-[8px] font-bold px-2 py-0.5 rounded-full"
+                  >{t["admin.security.logins.success"]}</span
+                >
+              </div>
+            </div>
+            <div
+              class="p-3 bg-zinc-50/50 dark:bg-zinc-950/20 border border-zinc-100 dark:border-zinc-800 rounded-xl flex justify-between items-center text-xs"
+            >
+              <div>
+                <span class="font-bold text-zinc-900 dark:text-white block"
+                  >حساب مجهول (كلمة مرور)</span
+                >
+                <span class="text-[10px] text-zinc-400 font-mono"
+                  >IP: 185.12.44.90</span
+                >
+              </div>
+              <div class="text-right space-y-1">
+                <span class="text-[9px] text-zinc-400 block"
+                  >{t["admin.security.logins.yesterday"]}</span
+                >
+                <span
+                  class="bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 text-[8px] font-bold px-2 py-0.5 rounded-full"
+                  >{t["admin.security.logins.failed"]}</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Container>
+</Layout>
+
+<script is:inline>
+  // Load settings from localStorage
+  const elements = [
+    "toggle-sessions",
+    "toggle-logs",
+    "toggle-direct-login",
+    "toggle-2fa",
+    "toggle-ip-manager",
+    "toggle-otp",
+    "toggle-email-verify",
+    "toggle-turnstile",
+    "toggle-recaptcha",
+  ];
+
+  elements.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      const storedValue = localStorage.getItem(`meamart_sec_${id}`);
+      if (storedValue !== null) {
+        el.checked = storedValue === "true";
+      }
+    }
+  });
+
+  const turnstileSitekey = document.getElementById("turnstile-sitekey");
+  if (turnstileSitekey) {
+    turnstileSitekey.value =
+      localStorage.getItem("meamart_sec_turnstile_sitekey") ||
+      "0x4AAAAAAAyLp8qJ85uO7e8z";
+  }
+
+  const recaptchaSitekey = document.getElementById("recaptcha-sitekey");
+  if (recaptchaSitekey) {
+    recaptchaSitekey.value =
+      localStorage.getItem("meamart_sec_recaptcha_sitekey") ||
+      "6Ld_xxxx_xxxxx_xxxxx_xxxxx";
+  }
+
+  // Toggle container visibility
+  const toggleContainer = (triggerId, containerId) => {
+    const trigger = document.getElementById(triggerId);
+    const container = document.getElementById(containerId);
+    if (trigger && container) {
+      const update = () => {
+        if (trigger.checked) {
+          container.classList.remove("hidden");
+        } else {
+          container.classList.add("hidden");
+        }
+      };
+      trigger.addEventListener("change", update);
+      update(); // run on mount
+    }
+  };
+
+  toggleContainer("toggle-turnstile", "turnstile-keys-container");
+  toggleContainer("toggle-recaptcha", "recaptcha-keys-container");
+
+  // Submit handler
+  const form = document.getElementById("security-form");
+  const alertSuccess = document.getElementById("save-success-alert");
+
+  if (form) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      elements.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+          localStorage.setItem(`meamart_sec_${id}`, String(el.checked));
+        }
+      });
+
+      if (turnstileSitekey)
+        localStorage.setItem(
+          "meamart_sec_turnstile_sitekey",
+          turnstileSitekey.value,
+        );
+      if (recaptchaSitekey)
+        localStorage.setItem(
+          "meamart_sec_recaptcha_sitekey",
+          recaptchaSitekey.value,
+        );
+
+      if (alertSuccess) {
+        alertSuccess.classList.remove("hidden");
+        alertSuccess.classList.add("flex");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setTimeout(() => {
+          alertSuccess.classList.add("hidden");
+          alertSuccess.classList.remove("flex");
+        }, 4000);
+      }
+    });
+  }
+
+  // Revoke sessions handler
+  const revokeBtn = document.getElementById("btn-revoke-sessions");
+  if (revokeBtn) {
+    const confirmMsg = revokeBtn.dataset.confirm ?? "Are you sure?";
+    const successMsg = revokeBtn.dataset.success ?? "Done!";
+    revokeBtn.addEventListener("click", () => {
+      if (confirm(confirmMsg)) {
+        document.querySelectorAll(".session-item").forEach((el) => el.remove());
+        alert(successMsg);
+      }
+    });
+  }
+</script>

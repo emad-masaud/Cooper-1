@@ -1,0 +1,40 @@
+---
+import Layout from '~/layouts/Layout.astro';
+import Container from '~/components/ui/Container.astro';
+import PageHeader from '~/components/layout/PageHeader.astro';
+import SellerSubNav from '~/components/seller/SellerSubNav.astro';
+import SellerReportsClient from '~/components/seller/SellerReportsClient';
+import { getMeamartSession } from '~/utils/session';
+import { defaultLang } from '~/i18n/ui';
+import { isRtl } from '~/i18n/utils';
+
+export const prerender = false;
+
+const { lang = defaultLang } = Astro.params;
+const rtl = isRtl(lang);
+
+const session = await getMeamartSession(Astro);
+if (!session) {
+  return Astro.redirect(`/${lang}/login`);
+}
+---
+
+<Layout title="تقارير إحصائيات المحادثات والمسحات | ميمارت" description="تقارير أداء الإعلانات والباركود ومحادثات واتساب التفاعلية وتوزيع الأجهزة والمدن">
+  <Container>
+    <div class="py-8">
+      <PageHeader
+        title="تقارير إحصائيات المحادثات والمسحات"
+        description="تابع أداء إعلاناتك وروابطك وتفاصيل مسحات الباركود ومحادثات الواتساب المفتوحة ونسب التحويل"
+      />
+
+      <SellerSubNav
+        lang={lang}
+        activeTab="reports"
+      />
+
+      <div class="mt-8 max-w-6xl mx-auto">
+        <SellerReportsClient client:load />
+      </div>
+    </div>
+  </Container>
+</Layout>

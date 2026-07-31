@@ -1,0 +1,113 @@
+---
+import { useTranslations } from '~/i18n/utils';
+import AdCard from '~/components/ui/AdCard.astro';
+import HomeSlideItem from '~/components/sections/home/HomeSlideItem.astro';
+
+interface AdItem {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  price: number;
+  currency?: string;
+  categoryKey: string;
+  categoryAr: string;
+  categoryEn: string;
+  cityAr: string;
+  cityEn: string;
+  image: string;
+  sellerPhone: string;
+}
+
+interface Props {
+  categoryLabel?: string;
+  categoryKey?: string;
+  ads?: AdItem[];
+  lang?: string;
+}
+
+let { categoryLabel = '', categoryKey = '', ads = [], lang = 'en' } = Astro.props as Props;
+
+    const { erpnext } = await import('~/lib/erpnext/client');
+
+    const res = await erpnext.getListings({ limit: 50 });
+    const rawAds = res.data;
+
+    if (rawAds && rawAds.length > 0) {
+      // Count categories
+      const counts = rawAds.reduce((acc: any, a: any) => {
+        const key = a.category || 'used-items';
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const sorted = Object.entries(counts).sort(([, a], [, b]) => (b as number) - (a as number));
+      if (sorted.length > 0) {
+        const topCatKey = sorted[0][0];
+        categoryKey = topCatKey;
+        categoryLabel = topCatKey; // ERPNext might only give the ID
+
+        const filteredRaw = rawAds.filter((ad: any) => (ad.category || 'used-items') === topCatKey).slice(0, 6);
+        
+        ads = filteredRaw.map((ad: any) => {
+          const images = Array.isArray(ad.images) && ad.images.length > 0 ? ad.images.map((img: any) => img.image_url) : ['/logo.svg'];
+          
+          return {
+            id: String(ad.name),
+            slug: ad.name,
+            title: ad.title || 'بدون عنوان',
+            description: ad.description || '',
+            price: Number(ad.price) || 0,
+            currency: 'SAR',
+            categoryKey: topCatKey,
+            categoryAr: topCatKey,
+            categoryEn: topCatKey,
+            cityAr: ad.city || '',
+            cityEn: ad.city || '',
+            image: images[0],
+            sellerPhone: ad.owner_phone || '',
+          };
+        });
+      }
+    }
+  } catch (e) {
+    console.error('Failed to self-fetch popular category ads:', e);
+  }
+}
+
+const t = useTranslations(lang);
+---
+
+{ads.length > 0 && (
+  <section class="py-12 bg-background">
+    <div class="container mx-auto px-4">
+      <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 class="text-3xl font-bold">{categoryLabel || t['home.mostRequested.title']}</h2>
+
+        </div>
+        <a href={`/${lang}/ads?category=${encodeURIComponent(categoryKey || '')}`} class="text-sm font-semibold text-primary hover:underline">
+          {t['home.mostRequested.view_all']}
+        </a>
+      </div>
+
+      <div class="flex snap-x snap-mandatory gap-4 overflow-x-auto pt-2 pb-4 px-1">
+        {ads.map((ad) => (
+          <HomeSlideItem class="min-w-[320px] max-w-85 snap-start">
+            <AdCard
+              title={ad.title}
+              price={ad.price}
+              currency={ad.currency}
+              category={lang === 'ar' ? ad.categoryAr : ad.categoryEn}
+              city={lang === 'ar' ? ad.cityAr : ad.cityEn}
+              image={ad.image}
+              sellerPhone={ad.sellerPhone}
+              slug={`/${lang}/ads/${ad.id}`}
+              lang={lang}
+            />
+          </HomeSlideItem>
+        ))}
+      </div>
+    </div>
+  </section>
+)}

@@ -1,0 +1,125 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import { categoriesStructure, categoryStyles } from "~/utils/categories";
+import { languages } from "~/i18n/ui";
+import { useTranslations } from "~/i18n/utils";
+import {
+  Car,
+  Home,
+  Briefcase,
+  Wrench,
+  Smartphone,
+  Sofa,
+  ShoppingBag,
+  Baby,
+  PawPrint,
+  Dumbbell,
+  Building2,
+  UtensilsCrossed,
+  Plane,
+  Package,
+  MapPin,
+  Tag,
+} from "lucide-react";
+
+export function getStaticPaths() {
+  return Object.keys(languages).map((lang) => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params;
+const t = useTranslations(lang as keyof typeof languages);
+
+const iconComponents: Record<string, any> = {
+  Car,
+  Home,
+  Briefcase,
+  Wrench,
+  Smartphone,
+  Sofa,
+  ShoppingBag,
+  Baby,
+  PawPrint,
+  Dumbbell,
+  Building2,
+  UtensilsCrossed,
+  Plane,
+  Package,
+  MapPin,
+};
+---
+
+<Layout
+  title={t["categories.page.title"] || "أقسام ميمارت | MeaMart Categories"}
+  description={t["categories.page.desc"] || ""}
+>
+  <PageHeader
+    title={t["categories.header.title"] || "أقسام ميمارت"}
+    description={t["categories.header.desc"] || ""}
+  />
+
+  <Container as="section" class="pb-24">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {
+        categoriesStructure.map((group) => {
+          const parentLabel = lang === "ar" ? group.labelAr : group.labelEn;
+          const IconComponent = iconComponents[group.icon] || Tag;
+          const style = categoryStyles[group.key] || {
+            bg: "bg-zinc-50 dark:bg-zinc-800/30",
+            text: "text-zinc-650 dark:text-zinc-300",
+            border: "border-zinc-150 dark:border-zinc-800/30",
+            hoverBg: "group-hover:bg-zinc-600",
+            hoverText: "group-hover:text-white",
+          };
+
+          return (
+            <div class="flex flex-col rounded-3xl border border-zinc-200/50 bg-white/40 p-6 shadow-xs backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 transition-all duration-300 hover:border-primary/30 hover:shadow-md dark:hover:border-zinc-700/50 group">
+              {/* Header */}
+              <div class="flex items-center gap-3 mb-6">
+                <span
+                  class={`flex h-12 w-12 items-center justify-center rounded-full border ${style.bg} ${style.text} ${style.border} shrink-0 transition-colors duration-300`}
+                >
+                  <IconComponent className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-50 leading-tight">
+                    {parentLabel}
+                  </h3>
+                  <a
+                    href={`/${lang}/ads?category=${group.key}`}
+                    class="text-xs font-semibold text-primary hover:underline"
+                  >
+                    {t["categories.viewAll"] || t["gen.isar.index.1"]}
+                  </a>
+                </div>
+              </div>
+
+              {/* Subcategories list */}
+              <div class="flex-1">
+                <ul class="space-y-1">
+                  {group.children.map((child) => {
+                    const childLabel = lang === "ar" ? child.ar : child.en;
+                    return (
+                      <li>
+                        <a
+                          href={`/${lang}/ads?category=${child.key}`}
+                          class="flex items-center justify-between p-2.5 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-primary/5 hover:text-primary dark:hover:bg-zinc-800/40 transition-colors group"
+                        >
+                          <span class="truncate">{childLabel}</span>
+                          <span class="text-xs text-zinc-400 group-hover:text-primary opacity-0 group-hover:opacity-100 transition-all">
+                            {t["gen.isar.index.2"]}
+                          </span>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+          );
+        })
+      }
+    </div>
+  </Container>
+</Layout>

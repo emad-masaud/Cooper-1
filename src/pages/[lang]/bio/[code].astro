@@ -1,0 +1,900 @@
+---
+import SEO from "~/components/layout/SEO.astro";
+import { supabaseAdminClient } from "~/utils/supabase";
+import { isRtl } from "~/i18n/utils";
+import { defaultLang } from "~/i18n/ui";
+
+export const prerender = false;
+
+const { lang = defaultLang, code } = Astro.params;
+const rtl = isRtl(lang);
+
+// Look up the bio QR link in database
+let bioData: any = null;
+if (code) {
+  const { data } = await supabaseAdminClient
+    .from("qr_links")
+    .select("*")
+    .eq("short_code", code)
+    .single();
+
+  if (data) {
+    bioData = data;
+  }
+}
+
+if (!bioData && (code === "code" || code === "preview" || !code)) {
+  bioData = {
+    title: "متجر ميمارت التجريبي (معاينة حية)",
+    qr_options: {
+      bioDescription:
+        "هذه معاينة حية لصفحة الرابط الموحد الاحترافية مع جميع المزايا المخصصة.",
+      themeBg: "#0f172a",
+      fontFamily: "Alexandria",
+      fontSize: "md",
+      socialStyle: "circles",
+      cardStyle: "rounded-full",
+      alignment: "right",
+      titleColor: "#ffffff",
+      textColor: "#e2e8f0",
+      sectionTitleColor: "#38bdf8",
+      bgType: "pattern",
+      patternType: "whatsapp",
+      patternColor: "#38bdf8",
+      bioLinks: [
+        { title: "قائمة منتجاتنا المميزة", isSection: true },
+        {
+          label: "قهوة مختصة فاخرة V60",
+          price: "24 ر.س",
+          icon: "☕",
+          isMenu: true,
+          lineStyle: "dotted",
+        },
+        {
+          label: "كيكة العسل الإمبراطورية",
+          price: "38 ر.س",
+          icon: "🍰",
+          isMenu: true,
+          lineStyle: "dashed",
+        },
+        { title: "روابط التواصل والحجز", isSection: true },
+        {
+          label: "حجز طاولة عبر الواتساب",
+          url: "https://wa.me/966500000000",
+          displayAs: "card",
+        },
+        {
+          label: "إنستقرام",
+          url: "https://instagram.com",
+          displayAs: "social",
+        },
+        { label: "تيك توك", url: "https://tiktok.com", displayAs: "social" },
+        {
+          label: "موقعنا على خرائط قوقل",
+          url: "https://maps.google.com",
+          displayAs: "social",
+        },
+      ],
+    },
+  };
+}
+
+const title =
+  bioData?.title || (rtl ? "الرابط الموحد | ميمارت" : "Link in Bio | MeaMart");
+const opts = bioData?.qr_options || {};
+const bioDescription =
+  opts.bioDescription ||
+  "مرحباً بك في صفحتي الرسمية على منصة ميمارت. يمكنك التواصل ومتابعة الروابط أدناه.";
+const avatarUrl = opts.avatarUrl || "/favicon.svg";
+
+// Custom design settings from advertiser
+const themeBg = opts.themeBg || "#09090b";
+const fontFamily = opts.fontFamily || "Tajawal";
+const fontSize = opts.fontSize || "md"; // sm | md | lg
+const socialStyle = opts.socialStyle || "circles"; // squares | circles
+const cardStyle = opts.cardStyle || "rounded-full"; // rounded-full | rounded-3xl | rounded-lg | glass
+const alignment = opts.alignment || "center"; // center | right
+const titleColor = opts.titleColor || "#ffffff";
+const textColor = opts.textColor || "#e4e4e7";
+const sectionTitleColor = opts.sectionTitleColor || titleColor;
+const bgType = opts.bgType || "color";
+const patternType = opts.patternType || "whatsapp";
+const patternColor = opts.patternColor || "#ffffff";
+const bgImageUrl = opts.bgImageUrl || "";
+
+const fontSizeClass =
+  fontSize === "lg" ? "text-lg" : fontSize === "sm" ? "text-sm" : "text-base";
+const cardRoundedClass =
+  cardStyle === "rounded-3xl"
+    ? "rounded-3xl"
+    : cardStyle === "rounded-none"
+      ? "rounded-none"
+      : cardStyle === "rounded-lg"
+        ? "rounded-lg"
+        : "rounded-full";
+
+const cardBgClass =
+  cardStyle === "glass"
+    ? "bg-white/5 border-white/20 backdrop-blur-2xl shadow-2xl hover:bg-white/10"
+    : cardStyle === "flat"
+      ? "bg-transparent border-transparent shadow-none hover:bg-white/5"
+      : "bg-white/10 border-white/15 hover:bg-white/20 shadow-lg backdrop-blur-md";
+
+const borderClass = cardStyle === "flat" ? "border-none" : "border";
+
+function isKnownSocialUrl(url = "") {
+  const str = url.toLowerCase();
+  return (
+    str.includes("wa.me") ||
+    str.includes("whatsapp") ||
+    str.includes("instagram") ||
+    str.includes("instagr.am") ||
+    str.includes("x.com") ||
+    str.includes("twitter") ||
+    str.includes("tiktok") ||
+    str.includes("snapchat") ||
+    str.includes("t.me") ||
+    str.includes("telegram") ||
+    str.includes("facebook") ||
+    str.includes("fb.com") ||
+    str.includes("youtube") ||
+    str.includes("youtu.be") ||
+    str.includes("linkedin") ||
+    str.includes("twitch") ||
+    str.includes("discord") ||
+    str.includes("nintendo") ||
+    str.includes("switch") ||
+    str.includes("github") ||
+    str.includes("spotify") ||
+    str.includes("pinterest") ||
+    str.includes("reddit") ||
+    str.includes("threads") ||
+    str.includes("apple") ||
+    str.includes("amazon") ||
+    str.includes("paypal") ||
+    str.includes("stripe") ||
+    str.includes("patreon") ||
+    str.includes("maps.google") ||
+    str.includes("goo.gl/maps")
+  );
+}
+
+function getTheSvgBrandImg(slug: string, altName: string) {
+  return `<img src="https://cdn.jsdelivr.net/gh/glincker/thesvg@main/public/icons/${slug}/default.svg" class="w-5 h-5 object-contain drop-shadow-sm transition-transform duration-200" alt="${altName}" loading="lazy" />`;
+}
+
+function detectSocialInfo(url = "", label = "") {
+  const str = `${url} ${label}`.toLowerCase();
+  if (
+    str.includes("wa.me") ||
+    str.includes("whatsapp") ||
+    str.includes("واتساب")
+  ) {
+    return {
+      svg: getTheSvgBrandImg("whatsapp", label || "واتساب"),
+      name: label || "واتساب",
+      color: "from-emerald-600/30 to-green-600/30 border-emerald-500/40",
+    };
+  }
+  if (
+    str.includes("instagram") ||
+    str.includes("instagr.am") ||
+    str.includes("انستغرام") ||
+    str.includes("انستقرام")
+  ) {
+    return {
+      svg: getTheSvgBrandImg("instagram", label || "انستغرام"),
+      name: label || "انستغرام",
+      color:
+        "from-pink-600/30 via-purple-600/30 to-amber-600/30 border-pink-500/40",
+    };
+  }
+  if (
+    str.includes("twitter") ||
+    str.includes("x.com") ||
+    str.includes("تويتر")
+  ) {
+    return {
+      svg: getTheSvgBrandImg("x", label || "تويتر / X"),
+      name: label || "تويتر / X",
+      color: "from-zinc-800/60 to-black/60 border-zinc-600/40",
+    };
+  }
+  if (str.includes("tiktok") || str.includes("تيك توك")) {
+    return {
+      svg: getTheSvgBrandImg("tiktok", label || "تيك توك"),
+      name: label || "تيك توك",
+      color: "from-zinc-900/60 to-rose-950/40 border-rose-500/40",
+    };
+  }
+  if (str.includes("snapchat") || str.includes("سناب")) {
+    return {
+      svg: getTheSvgBrandImg("snapchat", label || "سناب شات"),
+      name: label || "سناب شات",
+      color: "from-amber-500/30 to-yellow-500/30 border-yellow-400/40",
+    };
+  }
+  if (
+    str.includes("t.me") ||
+    str.includes("telegram") ||
+    str.includes("تليجرام")
+  ) {
+    return {
+      svg: getTheSvgBrandImg("telegram", label || "تليجرام"),
+      name: label || "تليجرام",
+      color: "from-sky-600/30 to-blue-600/30 border-sky-400/40",
+    };
+  }
+  if (
+    str.includes("facebook") ||
+    str.includes("fb.com") ||
+    str.includes("فيسبوك")
+  ) {
+    return {
+      svg: getTheSvgBrandImg("facebook", label || "فيسبوك"),
+      name: label || "فيسبوك",
+      color: "from-blue-600/30 to-indigo-600/30 border-blue-500/40",
+    };
+  }
+  if (
+    str.includes("youtube") ||
+    str.includes("youtu.be") ||
+    str.includes("يوتيوب")
+  ) {
+    return {
+      svg: getTheSvgBrandImg("youtube", label || "يوتيوب"),
+      name: label || "يوتيوب",
+      color: "from-red-600/30 to-rose-700/30 border-red-500/40",
+    };
+  }
+  if (str.includes("linkedin") || str.includes("لينكدإن")) {
+    return {
+      svg: getTheSvgBrandImg("linkedin", label || "لينكدإن"),
+      name: label || "لينكدإن",
+      color: "from-blue-700/30 to-sky-700/30 border-blue-400/40",
+    };
+  }
+  if (
+    str.includes("maps.google") ||
+    str.includes("goo.gl/maps") ||
+    str.includes("الموقع الجغرافي") ||
+    str.includes("خرائط")
+  ) {
+    return {
+      svg: getTheSvgBrandImg("google-maps", label || "الموقع الجغرافي"),
+      name: label || "الموقع الجغرافي",
+      color: "from-red-500/30 to-emerald-600/30 border-red-400/40",
+    };
+  }
+  if (str.includes("twitch") || str.includes("تويتش")) {
+    return {
+      svg: getTheSvgBrandImg("twitch", label || "تويتش"),
+      name: label || "تويتش",
+      color: "from-purple-600/30 to-violet-600/30 border-purple-400/40",
+    };
+  }
+  if (
+    str.includes("switch") ||
+    str.includes("nintendo") ||
+    str.includes("سويتش")
+  ) {
+    return {
+      svg: getTheSvgBrandImg("nintendo", label || "سويتش Switch"),
+      name: label || "سويتش Switch",
+      color: "from-red-600/30 to-rose-600/30 border-red-500/40",
+    };
+  }
+  if (str.includes("discord") || str.includes("ديسكورد")) {
+    return {
+      svg: getTheSvgBrandImg("discord", label || "ديسكورد Discord"),
+      name: label || "ديسكورد Discord",
+      color: "from-indigo-600/30 to-violet-600/30 border-indigo-500/40",
+    };
+  }
+  if (
+    str.includes("github") ||
+    str.includes("جيت هب") ||
+    str.includes("قيت هب")
+  ) {
+    return {
+      svg: getTheSvgBrandImg("github", label || "جيت هب"),
+      name: label || "جيت هب",
+      color: "from-zinc-800/60 to-black/60 border-zinc-600/40",
+    };
+  }
+  if (str.includes("spotify") || str.includes("سبوتيفاي")) {
+    return {
+      svg: getTheSvgBrandImg("spotify", label || "سبوتيفاي"),
+      name: label || "سبوتيفاي",
+      color: "from-emerald-700/30 to-green-800/30 border-emerald-500/40",
+    };
+  }
+  if (str.includes("pinterest") || str.includes("بنترست")) {
+    return {
+      svg: getTheSvgBrandImg("pinterest", label || "بنترست"),
+      name: label || "بنترست",
+      color: "from-red-600/30 to-rose-700/30 border-red-500/40",
+    };
+  }
+  if (str.includes("reddit") || str.includes("ريديت")) {
+    return {
+      svg: getTheSvgBrandImg("reddit", label || "ريديت"),
+      name: label || "ريديت",
+      color: "from-orange-600/30 to-amber-600/30 border-orange-500/40",
+    };
+  }
+  if (str.includes("threads") || str.includes("ثريدز")) {
+    return {
+      svg: getTheSvgBrandImg("threads", label || "ثريدز"),
+      name: label || "ثريدز",
+      color: "from-zinc-800/60 to-black/60 border-zinc-600/40",
+    };
+  }
+  if (str.includes("apple") || str.includes("أبل")) {
+    return {
+      svg: getTheSvgBrandImg("apple", label || "أبل"),
+      name: label || "أبل",
+      color: "from-zinc-700/40 to-zinc-900/40 border-zinc-500/40",
+    };
+  }
+  if (str.includes("amazon") || str.includes("أمازون")) {
+    return {
+      svg: getTheSvgBrandImg("amazon", label || "أمازون"),
+      name: label || "أمازون",
+      color: "from-amber-600/30 to-orange-700/30 border-amber-500/40",
+    };
+  }
+  if (str.includes("paypal") || str.includes("باي بال")) {
+    return {
+      svg: getTheSvgBrandImg("paypal", label || "باي بال"),
+      name: label || "باي بال",
+      color: "from-blue-600/30 to-sky-700/30 border-blue-500/40",
+    };
+  }
+  if (str.includes("stripe") || str.includes("سترايب")) {
+    return {
+      svg: getTheSvgBrandImg("stripe", label || "سترايب"),
+      name: label || "سترايب",
+      color: "from-indigo-600/30 to-purple-600/30 border-indigo-500/40",
+    };
+  }
+  if (str.includes("patreon") || str.includes("باتريون")) {
+    return {
+      svg: getTheSvgBrandImg("patreon", label || "باتريون"),
+      name: label || "باتريون",
+      color: "from-rose-600/30 to-orange-600/30 border-rose-500/40",
+    };
+  }
+  if (str.includes("mailto:") || str.includes("@") || str.includes("بريد")) {
+    return {
+      svg: '<svg class="w-5 h-5 text-amber-400 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',
+      name: label || "البريد الإلكتروني",
+      color: "from-amber-600/30 to-orange-600/30 border-amber-400/40",
+    };
+  }
+  if (str.includes("tel:") || str.includes("اتصال") || str.includes("هاتف")) {
+    return {
+      svg: '<svg class="w-5 h-5 text-emerald-400 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+      name: label || "اتصال هاتفي",
+      color: "from-emerald-600/30 to-teal-600/30 border-emerald-400/40",
+    };
+  }
+  return {
+    svg: '<svg class="w-5 h-5 text-zinc-300 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+    name: label || "رابط خارجي",
+    color: "from-white/10 to-white/5 border-white/20",
+  };
+}
+
+const rawLinks: any[] =
+  Array.isArray(opts.bioLinks) && opts.bioLinks.length > 0
+    ? opts.bioLinks
+    : [
+        { label: "تصفح المتجر على ميمارت", url: `/${lang}`, displayAs: "card" },
+        {
+          label: "تواصل عبر واتساب",
+          url: "https://wa.me/",
+          displayAs: "social",
+        },
+      ];
+
+const socialLinks = rawLinks.filter(
+  (item: any) =>
+    !item.isSection &&
+    !item.isMenu &&
+    item.type !== "menu" &&
+    (item.displayAs === "social" ||
+      (!item.displayAs && isKnownSocialUrl(item.url))),
+);
+const cardLinks = rawLinks.filter(
+  (item: any) =>
+    item.isSection ||
+    item.isMenu ||
+    item.type === "menu" ||
+    item.displayAs === "card" ||
+    (!item.displayAs && !isKnownSocialUrl(item.url)),
+);
+---
+
+<!doctype html>
+<html lang={lang} dir={rtl ? "rtl" : "ltr"} class="scroll-smooth">
+  <head>
+    <SEO title={title} description={bioDescription} image={avatarUrl} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;700&family=Almarai:wght@400;700;800&family=Amiri:wght@400;700&family=Cairo:wght@400;600;700;900&family=Changa:wght@400;700&family=El+Messiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;600;700&family=Lalezar&family=Readex+Pro:wght@400;700&family=Rubik:wght@400;700&family=Tajawal:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style define:vars={{ themeBg, fontFamily }}>
+      body,
+      body * {
+        font-family:
+          var(--fontFamily), "Tajawal", "Noto Kufi Arabic", sans-serif !important;
+      }
+    </style>
+  </head>
+  <body
+    class="min-h-screen relative overflow-x-hidden selection:bg-primary selection:text-white"
+    style={`background: ${themeBg.startsWith("#") ? themeBg : "#09090b"}; color: ${textColor};`}
+  >
+    {/* Custom Background Image Overlay */}
+    {
+      bgType === "image" && bgImageUrl && (
+        <div
+          class="fixed inset-0 bg-cover bg-center pointer-events-none z-0 opacity-40"
+          style={`background-image: url('${bgImageUrl}')`}
+        />
+      )
+    }
+
+    {/* Pattern Background Overlay (WhatsApp Doodle, Dots, Grid, Waves) */}
+    {
+      bgType === "pattern" && (
+        <svg class="fixed inset-0 w-full h-full pointer-events-none z-0 opacity-25">
+          <defs>
+            {patternType === "whatsapp" && (
+              <pattern
+                id="bio-pattern"
+                width="120"
+                height="120"
+                patternUnits="userSpaceOnUse"
+              >
+                {/* WhatsApp-like Doodles: Chat Bubble, Heart, Star, Double Tick, Coffee, Phone */}
+                <g
+                  fill="none"
+                  stroke={patternColor}
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.8"
+                >
+                  {/* Chat Bubble */}
+                  <path
+                    d="M22 18a8 8 0 1 0-3.5 6.6L16 26l1.8-3.3A8 8 0 0 0 22 18Z"
+                    transform="translate(8,8) scale(0.7)"
+                  />
+                  {/* Heart */}
+                  <path
+                    d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                    transform="translate(68,12) scale(0.55)"
+                  />
+                  {/* Star */}
+                  <polygon
+                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+                    transform="translate(15,70) scale(0.55)"
+                  />
+                  {/* Checkmarks / Double Tick */}
+                  <path
+                    d="M18 6 7 17l-5-5 M22 10l-7.5 7.5L13 16"
+                    transform="translate(75,72) scale(0.6)"
+                  />
+                  {/* Coffee Cup */}
+                  <path
+                    d="M18 8h2a4 4 0 0 1 0 8h-2 M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"
+                    transform="translate(15,20) scale(0.4)"
+                  />
+                  {/* Phone Icon */}
+                  <path
+                    d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
+                    transform="translate(70,42) scale(0.45)"
+                  />
+                </g>
+              </pattern>
+            )}
+            {patternType === "dots" && (
+              <pattern
+                id="bio-pattern"
+                width="24"
+                height="24"
+                patternUnits="userSpaceOnUse"
+              >
+                <circle cx="12" cy="12" r="1.5" fill={patternColor} />
+              </pattern>
+            )}
+            {patternType === "grid" && (
+              <pattern
+                id="bio-pattern"
+                width="36"
+                height="36"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M 36 0 L 0 0 0 36"
+                  fill="none"
+                  stroke={patternColor}
+                  stroke-width="0.8"
+                />
+              </pattern>
+            )}
+            {patternType === "waves" && (
+              <pattern
+                id="bio-pattern"
+                width="60"
+                height="30"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M 0 15 Q 15 3 30 15 T 60 15"
+                  fill="none"
+                  stroke={patternColor}
+                  stroke-width="1.2"
+                />
+              </pattern>
+            )}
+            {patternType === "stars" && (
+              <pattern
+                id="bio-pattern"
+                width="40"
+                height="40"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M20 2 L23 12 L33 12 L25 18 L28 28 L20 22 L12 28 L15 18 L7 12 L17 12 Z"
+                  fill="none"
+                  stroke={patternColor}
+                  stroke-width="0.8"
+                  transform="scale(0.4)"
+                />
+              </pattern>
+            )}
+            {patternType === "diagonal" && (
+              <pattern
+                id="bio-pattern"
+                width="20"
+                height="20"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M0 20 L20 0 M-5 5 L5 -5 M15 25 L25 15"
+                  fill="none"
+                  stroke={patternColor}
+                  stroke-width="0.8"
+                />
+              </pattern>
+            )}
+          </defs>
+          <rect width="100%" height="100%" fill="url(#bio-pattern)" />
+        </svg>
+      )
+    }
+
+    {/* Decorative Ambient Background Glows */}
+    <div
+      class="fixed -top-40 -left-40 w-96 h-96 bg-primary/25 rounded-full blur-3xl pointer-events-none animate-pulse"
+    >
+    </div>
+    <div
+      class="fixed -bottom-40 -right-40 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"
+    >
+    </div>
+
+    {/* Sticky Profile Top Header */}
+    <header
+      class="sticky top-0 z-50 backdrop-blur-xl bg-black/40 border-b border-white/10 px-4 py-3 transition-all duration-300"
+    >
+      <div class="max-w-md mx-auto flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <img
+            src={avatarUrl}
+            alt={title}
+            class="h-9 w-9 rounded-full object-cover border border-white/30 shadow-sm shrink-0"
+            onerror="this.src='/favicon.svg'"
+          />
+          <div class="min-w-0">
+            <h2
+              class="text-sm font-black truncate text-white flex items-center gap-1.5"
+            >
+              <span>{title}</span>
+              <span
+                class="inline-flex items-center justify-center h-4 w-4 rounded-full bg-blue-500 text-[10px] text-white shrink-0"
+                title="موثق">✓</span
+              >
+            </h2>
+          </div>
+        </div>
+
+        <button
+          onclick={`navigator.clipboard && navigator.clipboard.writeText(window.location.href); alert('تم نسخ الرابط الموحد بنجاح');`}
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-bold transition active:scale-95 shrink-0"
+        >
+          <span>مشاركة</span>
+          <span>↗</span>
+        </button>
+      </div>
+    </header>
+
+    {/* Main Content Container (No site header, no site footer) */}
+    <main class="max-w-md mx-auto px-4 py-8 relative z-10">
+      {/* Hero Profile Header */}
+      <div class="flex flex-col items-center text-center space-y-4 mb-8">
+        <div class="relative group">
+          <div
+            class="absolute -inset-1 rounded-full bg-gradient-to-r from-primary via-purple-500 to-pink-500 blur-sm opacity-75 group-hover:opacity-100 transition duration-300"
+          >
+          </div>
+          <div
+            class="relative h-28 w-28 rounded-full border-2 border-white/40 p-1 bg-black/60 overflow-hidden shadow-2xl"
+          >
+            <img
+              src={avatarUrl}
+              alt={title}
+              class="h-full w-full rounded-full object-cover"
+              onerror="this.src='/favicon.svg'"
+            />
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="inline-flex items-center justify-center gap-1.5">
+            <h1
+              class="text-2xl sm:text-3xl font-black tracking-tight"
+              style={`color: ${titleColor}`}
+            >
+              {title}
+            </h1>
+            <span
+              class="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-500 text-xs text-white shadow-md"
+              title="حساب موثق">✓</span
+            >
+          </div>
+          <p
+            class={`max-w-sm mx-auto leading-relaxed ${fontSizeClass}`}
+            style={`color: ${textColor}`}
+          >
+            {bioDescription}
+          </p>
+        </div>
+      </div>
+
+      {/* Social Media Section */}
+      {
+        socialLinks.length > 0 &&
+          (socialStyle === "squares" ? (
+            <div class="mb-8">
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {socialLinks.map((item: any, idx: number) => {
+                  const soc = detectSocialInfo(item.url, item.label);
+                  return (
+                    <a
+                      key={idx}
+                      href={item.url}
+                      target={item.url?.startsWith("http") ? "_blank" : "_self"}
+                      rel="noopener noreferrer"
+                      class={`flex flex-col items-center justify-center gap-2 p-3.5 ${cardRoundedClass} border bg-gradient-to-b ${soc.color} hover:scale-[1.03] active:scale-[0.97] transition-all duration-300 shadow-lg text-center backdrop-blur-md group`}
+                    >
+                      <span class="group-hover:scale-110 transition-transform">
+                        <Fragment set:html={soc.svg} />
+                      </span>
+                      <span class="text-xs font-bold truncate w-full text-white/90">
+                        {item.label || soc.name}
+                      </span>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div class="flex flex-wrap items-center justify-center gap-3 mb-8">
+              {socialLinks.map((item: any, idx: number) => {
+                const soc = detectSocialInfo(item.url, item.label);
+                return (
+                  <a
+                    key={idx}
+                    href={item.url}
+                    target={item.url?.startsWith("http") ? "_blank" : "_self"}
+                    rel="noopener noreferrer"
+                    title={item.label || soc.name}
+                    class="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/10 hover:bg-white/25 hover:scale-110 active:scale-95 transition-all duration-200 shadow-md backdrop-blur-md"
+                  >
+                    <Fragment set:html={soc.svg} />
+                  </a>
+                );
+              })}
+            </div>
+          ))
+      }
+
+      {/* Categorized / List Links Stack */}
+      <div class="space-y-3">
+        {
+          cardLinks.map((item: any, idx: number) => {
+            if (item.isSection) {
+              return (
+                <div key={idx} class="pt-5 pb-1 flex items-center gap-3">
+                  <div class="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                  <h3
+                    class="text-xs font-extrabold uppercase tracking-wider px-3 py-1 rounded-full bg-white/5 border border-white/10"
+                    style={`color: ${item.color || item.textColor || sectionTitleColor}`}
+                  >
+                    {item.title || item.label}
+                  </h3>
+                  <div class="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                </div>
+              );
+            }
+
+            if (item.isMenu || item.type === "menu") {
+              const hasIcon = Boolean(item.icon);
+              const isImg =
+                hasIcon &&
+                (item.icon.startsWith("http") ||
+                  item.icon.startsWith("/") ||
+                  item.icon.startsWith("data:"));
+              const lineStyle = item.lineStyle || "dotted";
+              const lineColor = item.lineColor || textColor;
+              const content = (
+                <div
+                  class={`flex items-center justify-between w-full py-0.5 gap-2.5 ${alignment === "right" ? "flex-row-reverse" : ""}`}
+                >
+                  <div
+                    class={`flex items-center gap-2.5 max-w-[55%] truncate ${alignment === "right" ? "flex-row-reverse text-right" : ""}`}
+                  >
+                    {hasIcon &&
+                      (isImg ? (
+                        <img
+                          src={item.icon}
+                          alt=""
+                          class="w-9 h-9 rounded-xl object-cover shrink-0 shadow-sm"
+                        />
+                      ) : (
+                        <span class="text-xl shrink-0">{item.icon}</span>
+                      ))}
+                    <span
+                      class="font-extrabold text-sm sm:text-base truncate"
+                      style={`color: ${textColor}`}
+                    >
+                      {item.label || item.title || "اسم الصنف"}
+                    </span>
+                  </div>
+                  {lineStyle !== "none" && (
+                    <div
+                      class="flex-1 mx-2 self-end mb-2 opacity-50"
+                      style={`border-bottom-style: ${lineStyle}; border-bottom-width: 2px; border-bottom-color: ${lineColor};`}
+                    />
+                  )}
+                  <div
+                    class="shrink-0 font-black text-xs sm:text-sm px-3 py-1.5 rounded-xl bg-white/10 shadow-inner"
+                    style={`color: ${textColor}`}
+                  >
+                    {item.price || "0 ر.س"}
+                  </div>
+                </div>
+              );
+
+              return item.url ? (
+                <a
+                  key={idx}
+                  href={item.url}
+                  target={item.url.startsWith("http") ? "_blank" : "_self"}
+                  rel="noopener noreferrer"
+                  class={`block w-full ${cardRoundedClass} ${borderClass} ${cardBgClass} active:scale-[0.99] transition-all duration-300 py-3.5 px-4`}
+                >
+                  {content}
+                </a>
+              ) : (
+                <div
+                  key={idx}
+                  class={`block w-full ${cardRoundedClass} ${borderClass} ${cardBgClass} py-3.5 px-4`}
+                >
+                  {content}
+                </div>
+              );
+            }
+
+            const soc = detectSocialInfo(item.url, item.label);
+            const hasCustomIcon = Boolean(item.icon);
+            const isCustomImg =
+              hasCustomIcon &&
+              (item.icon.startsWith("http") ||
+                item.icon.startsWith("/") ||
+                item.icon.startsWith("data:"));
+
+            return (
+              <a
+                key={idx}
+                href={item.url}
+                target={item.url?.startsWith("http") ? "_blank" : "_self"}
+                rel="noopener noreferrer"
+                class={`block w-full ${cardRoundedClass} ${borderClass} ${cardBgClass} active:scale-[0.99] transition-all duration-300 py-4 px-5 text-sm font-bold group`}
+                style={`color: ${textColor}`}
+              >
+                <div
+                  class={`flex items-center justify-between ${alignment === "right" ? "flex-row-reverse" : ""}`}
+                >
+                  <div
+                    class={`flex items-center gap-3.5 min-w-0 ${alignment === "right" ? "flex-row-reverse text-right" : ""}`}
+                  >
+                    <span class="shrink-0 group-hover:scale-110 transition-transform flex items-center justify-center">
+                      {hasCustomIcon ? (
+                        isCustomImg ? (
+                          <img
+                            src={item.icon}
+                            alt=""
+                            class="w-5 h-5 rounded-md object-cover"
+                          />
+                        ) : (
+                          <span class="text-base">{item.icon}</span>
+                        )
+                      ) : (
+                        <Fragment set:html={soc.svg} />
+                      )}
+                    </span>
+                    <span class="truncate">{item.label || soc.name}</span>
+                  </div>
+                  <span class="text-xs opacity-60 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform shrink-0">
+                    ←
+                  </span>
+                </div>
+              </a>
+            );
+          })
+        }
+      </div>
+
+      {/* Copyright / Branding Footer (Without site header/footer) */}
+      <footer class="mt-12 pt-6 border-t border-white/10 text-center">
+        <a
+          href={`/${lang}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-400 hover:text-white transition"
+        >
+          <span>تم الإنشاء عن طريق</span>
+          <span class="text-blue-400 font-black tracking-wide">MeaMart</span>
+        </a>
+      </footer>
+    </main>
+    <script is:inline>
+      (function () {
+        const isPreviewRoute =
+          window.location.pathname.includes("/bio/code") ||
+          window.location.pathname.includes("/bio/preview");
+        if (isPreviewRoute) {
+          try {
+            const previewRaw = localStorage.getItem("meamart_bio_live_preview");
+            if (previewRaw) {
+              const preview = JSON.parse(previewRaw);
+              if (preview.qr_options) {
+                const opts = preview.qr_options;
+                if (opts.fontFamily) {
+                  document.body.style.setProperty(
+                    "font-family",
+                    `'${opts.fontFamily}', 'Tajawal', sans-serif`,
+                    "important",
+                  );
+                }
+                if (opts.themeBg) {
+                  document.body.style.background = opts.themeBg;
+                }
+                if (opts.textColor) {
+                  document.body.style.color = opts.textColor;
+                }
+              }
+            }
+          } catch (e) {}
+        }
+      })();
+    </script>
+  </body>
+</html>

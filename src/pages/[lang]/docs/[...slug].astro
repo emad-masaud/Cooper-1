@@ -1,0 +1,45 @@
+---
+import { type CollectionEntry, getCollection, render, getEntry } from 'astro:content';
+import DocsLayout from '~/layouts/DocsLayout.astro';
+
+export const prerender = false;
+
+export async function getStaticPaths() {
+	const docs = await getCollection('docs');
+	return docs.map((doc) => {
+        const lang = doc.id.split('/')[0];
+        const slug = doc.id.split('/').slice(1).join('/').replace(/\.[^/.]+$/, "");
+        return {
+		    params: { lang, slug },
+		    props: doc,
+	    };
+    });
+}
+
+type Props = CollectionEntry<'docs'>;
+
+const { lang, slug } = Astro.params;
+let entry = Astro.props;
+
+if (!entry || Object.keys(entry).length === 0) {
+  const docId = `${lang}/${slug}`;
+  entry = await getEntry('docs', docId);
+}
+
+if (!entry) {
+  return new Response('Document not found', { status: 404 });
+}
+
+const { Content, headings } = await render(entry);
+---
+
+<DocsLayout
+  title={entry.data.title}
+  description={entry.data.description}
+  noindex={entry.data.noindex}
+  nofollow={entry.data.nofollow}
+  headings={headings}
+  body={entry.body}
+>
+    <Content />
+</DocsLayout>

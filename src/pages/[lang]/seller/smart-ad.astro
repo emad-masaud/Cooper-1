@@ -1,0 +1,66 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import IntentWorkflow from "~/components/react/IntentWorkflow";
+import { getMeamartSession } from "~/utils/session";
+import { defaultLang } from "~/i18n/ui";
+import { isRtl, useTranslations } from "~/i18n/utils";
+import { Sparkles, ArrowRight, ArrowLeft } from "lucide-react";
+
+export const prerender = false;
+
+const { lang = defaultLang } = Astro.params;
+const rtl = isRtl(lang);
+const t = useTranslations(lang);
+const isAr = lang === "ar";
+
+const session = await getMeamartSession(Astro);
+if (!session) {
+  return Astro.redirect(
+    `/${lang}/login?redirect=${encodeURIComponent(Astro.url.pathname)}`,
+  );
+}
+---
+
+<Layout
+  title={isAr
+    ? "الوكيل الذكي لإنشاء الإعلانات والتسويق | ميمارت"
+    : "Smart Ad Assistant | MeaMart"}
+  description={isAr
+    ? "أنشئ إعلانات بيع احترافية بنبرة خليجية ومواصفات دقيقة تزيد من ظهور إعلانك في محركات البحث بثوانٍ معدودة."
+    : "Create professional sales ads with precise search-optimized specifications in seconds."}
+>
+  <PageHeader
+    title={isAr ? "الوكيل الذكي لإنشاء الإعلانات" : "Smart Ad Assistant"}
+    description={isAr
+      ? "مساعدك الشخصي لصياغة العناوين الجذابة والوصف المباشر والمواصفات الكاملة بنبرة خليجية موثوقة"
+      : "Your AI assistant for compelling titles, clear descriptions, and detailed search-optimized attributes"}
+  />
+
+  <Container class="pb-24 max-w-5xl">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <a
+        href={`/${lang}/seller/dashboard`}
+        class="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white/80 py-2.5 px-5 text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition-all dark:border-zinc-800 dark:bg-zinc-950/80 dark:text-zinc-300 dark:hover:bg-zinc-800"
+      >
+        {rtl ? <ArrowRight class="h-4 w-4" /> : <ArrowLeft class="h-4 w-4" />}
+        <span>{isAr ? "العودة للوحة التحكم" : "Back to Dashboard"}</span>
+      </a>
+
+      <div
+        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-primary/10 dark:bg-primary/20 border border-primary/30 text-xs font-extrabold text-primary shadow-2xs"
+      >
+        <Sparkles class="h-3.5 w-3.5 shrink-0" />
+        <span
+          >{isAr ? "دليل إنشاء إعلان ذكي مفعّل" : "Smart Ad Guide Active"}</span
+        >
+      </div>
+    </div>
+
+    <!-- Agent Workflow Container -->
+    <div class="w-full">
+      <IntentWorkflow client:load lang={lang} />
+    </div>
+  </Container>
+</Layout>

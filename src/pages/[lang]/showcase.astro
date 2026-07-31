@@ -1,23 +1,18 @@
 ---
-export const prerender = true;
 import Layout from '~/layouts/Layout.astro';
 import PageHeader from '~/components/layout/PageHeader.astro';
 import BeforeAfter from '~/components/islands/BeforeAfter';
 
-import TechStack from '~/components/sections/TechStack.astro';
-
-import { languages } from '~/i18n/ui';
+import { languages, defaultLang } from '~/i18n/ui';
 import { useTranslations } from '~/i18n/utils';
 
-export async function getStaticPaths() {
-  return Object.keys(languages).map((lang) => ({ params: { lang } }));
-}
+export const prerender = false;
 
-const { lang } = Astro.params;
+const { lang = defaultLang } = Astro.params;
 const t = useTranslations(lang);
 
-const beforeImage = '/showcase-light.webp';
-const afterImage = '/showcase-dark.webp';
+const beforeImage = '/showcase-light.png';
+const afterImage = '/showcase-dark.png';
 ---
 
 <Layout title={t['showcase.title']} description={t['showcase.subtitle']}>
@@ -40,16 +35,7 @@ const afterImage = '/showcase-dark.webp';
                 afterImage={afterImage}
                 beforeLabel={t['showcase.slider.before']}
                 afterLabel={t['showcase.slider.after']}
-            />
-
-            <div class="mt-24 mb-12 text-center">
-                <h2 class="text-3xl font-bold mb-4">The Tech Stack</h2>
-                <p class="text-foreground/60 max-w-2xl mx-auto">
-                    Built with the most modern and performant technologies available in the Astro ecosystem.
-                </p>
-            </div>
-
-            <TechStack t={t} />
+            />            
         </div>
     </section>
 </Layout>

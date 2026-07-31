@@ -1,0 +1,44 @@
+---
+import { useTranslations } from "~/i18n/utils";
+
+export interface Props {
+  lang: string;
+  activeTab: string;
+}
+
+const { lang, activeTab } = Astro.props;
+const t = useTranslations(lang);
+
+const tabs = [
+  { id: "dashboard", href: `/${lang}/admin/dashboard`, label: t["admin.nav.overview"] },
+  { id: "ads", href: `/${lang}/admin/ads`, label: t["admin.nav.ads"] },
+  { id: "users", href: `/${lang}/admin/users`, label: t["admin.nav.users"] },
+  { id: "security", href: `/${lang}/admin/security`, label: t["admin.nav.security"] },
+  { id: "settings", href: `/${lang}/admin/settings`, label: t["admin.nav.settings"] },
+  { id: "chatbot", href: `/${lang}/admin/chatbot`, label: t["admin.nav.chatbot"] },
+  { id: "database", href: `/${lang}/admin/database`, label: t["admin.nav.datatools"] },
+];
+---
+
+<div class="mb-8 flex flex-wrap gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4">
+  {tabs.map((tab) => (
+    <a
+      href={tab.href}
+      class={`px-4 py-2 font-bold ${
+        activeTab === tab.id
+          ? "text-primary border-b-2 border-primary"
+          : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+      }`}
+    >
+      {tab.label}
+    </a>
+  ))}
+  
+  <a
+    href="/api/auth/admin-logout"
+    class="px-4 py-2 font-bold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 ml-auto rtl:ml-0 rtl:mr-auto flex items-center gap-2"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+    {lang === "ar" ? "تسجيل الخروج" : "Logout"}
+  </a>
+</div>

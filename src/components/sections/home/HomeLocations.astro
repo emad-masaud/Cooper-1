@@ -1,0 +1,142 @@
+---
+import { useTranslations } from '~/i18n/utils';
+import AdCard from '~/components/ui/AdCard.astro';
+import HomeSlideItem from '~/components/sections/home/HomeSlideItem.astro';
+
+interface LocationItem {
+  city: string;
+  street: string;
+  district: string;
+  count: number;
+}
+
+interface AdItem {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  price: number;
+  currency?: string;
+  categoryKey: string;
+  categoryAr: string;
+  categoryEn: string;
+  cityAr: string;
+  cityEn: string;
+  image: string;
+  sellerPhone: string;
+}
+
+interface Props {
+  location?: LocationItem;
+  ads?: AdItem[];
+  lang?: string;
+}
+
+let { location, ads = [], lang = 'en' } = Astro.props as Props;
+
+if (ads.length === 0) {
+    const { erpnext } = await import('~/lib/erpnext/client');
+
+    const res = await erpnext.getListings({ limit: 50 });
+    const rawAds = res.data;
+
+    if (rawAds && rawAds.length > 0) {
+      const locationGroups = Object.values(rawAds.reduce((groups: any, ad: any) => {
+        const cityLabel = ad.city || '';
+        const street = ad.city || '';
+        const district = ad.region || '';
+        const key = [district, street, cityLabel].join('||');
+
+        if (!groups[key]) {
+          groups[key] = {
+            city: cityLabel,
+            street,
+            district,
+            count: 0,
+          };
+        }
+        groups[key].count += 1;
+        return groups;
+      }, {} as Record<string, { city: string; street: string; district: string; count: number }>))
+        .sort((a: any, b: any) => b.count - a.count);
+
+      if (locationGroups.length > 0) {
+        const topLoc = locationGroups[0] as any;
+        location = topLoc;
+
+        const filteredRaw = rawAds.filter((ad: any) => {
+          const cityLabel = ad.city || '';
+          const street = ad.city || '';
+          const district = ad.region || '';
+          return cityLabel === topLoc.city && street === topLoc.street && district === topLoc.district;
+        }).slice(0, 6);
+
+        ads = filteredRaw.map((ad: any) => {
+          const categoryKey = ad.category || 'used-items';
+          const images = Array.isArray(ad.images) && ad.images.length > 0 ? ad.images.map((img: any) => img.image_url) : ['/logo.svg'];
+          
+          return {
+            id: String(ad.name),
+            slug: ad.name,
+            title: ad.title || 'بدون عنوان',
+            description: ad.description || '',
+            price: Number(ad.price) || 0,
+            currency: 'SAR',
+            categoryKey: categoryKey,
+            categoryAr: categoryKey,
+            categoryEn: categoryKey,
+            cityAr: ad.city || '',
+            cityEn: ad.city || '',
+            image: images[0],
+            sellerPhone: ad.owner_phone || '',
+          };
+        });
+      }
+    }
+  } catch (e) {
+    console.error('Failed to self-fetch location ads:', e);
+  }
+}
+
+const t = useTranslations(lang);
+const locationTitle = location ? location.district || location.street || location.city : '';
+const queryParams = [];
+if (location?.district) queryParams.push(`district=${encodeURIComponent(location.district)}`);
+if (location?.street) queryParams.push(`street=${encodeURIComponent(location.street)}`);
+if (location?.city) queryParams.push(`city=${encodeURIComponent(location.city)}`);
+const viewAllHref = `/${lang}/ads${queryParams.length ? `?${queryParams.join('&')}` : ''}`;
+---
+
+{location && ads.length > 0 && (
+  <section class="py-12 bg-muted/30">
+    <div class="container mx-auto px-4">
+      <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 class="text-3xl font-bold">{locationTitle || t['home.locations.title']}</h2>
+
+        </div>
+        <a href={viewAllHref} class="text-sm font-semibold text-primary hover:underline">
+          {t['home.locations.view_all']}
+        </a>
+      </div>
+
+      <div class="flex snap-x snap-mandatory gap-4 overflow-x-auto pt-2 pb-4 px-1">
+        {ads.map((ad) => (
+          <HomeSlideItem class="min-w-[320px] max-w-85 snap-start">
+            <AdCard
+              title={ad.title}
+              price={ad.price}
+              currency={ad.currency}
+              category={lang === 'ar' ? ad.categoryAr : ad.categoryEn}
+              city={lang === 'ar' ? ad.cityAr : ad.cityEn}
+              image={ad.image}
+              sellerPhone={ad.sellerPhone}
+              slug={`/${lang}/ads/${ad.id}`}
+              lang={lang}
+            />
+          </HomeSlideItem>
+        ))}
+      </div>
+    </div>
+  </section>
+)}

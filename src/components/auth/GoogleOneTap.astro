@@ -1,0 +1,84 @@
+---
+import { getLangFromUrl } from "../../i18n/utils";
+import { getEnv } from "../../utils/env";
+
+const lang = getLangFromUrl(Astro.url);
+// Use getEnv to read from Cloudflare runtime env at request time
+const googleClientId = getEnv(Astro.locals, 'GOOGLE_CLIENT_ID') || import.meta.env.GOOGLE_CLIENT_ID || '';
+---
+
+{googleClientId && (
+  <script is:inline define:vars={{ googleClientId, lang }}>
+    (function () {
+      // Check if user is already logged in or on admin page
+      const hasActiveSession = document.cookie.includes('meamart_session');
+      if (hasActiveSession || window.location.pathname.includes('/admin')) return;
+
+
+      const scriptId = 'google-gsi-client-global';
+      let script = document.getElementById(scriptId);
+
+      const handleGoogleOneTapResponse = async (response) => {
+        const credential = response.credential;
+        if (!credential) return;
+
+        try {
+          const res = await fetch('/api/auth/google/one-tap', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ credential })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+              const urlParams = new URLSearchParams(window.location.search);
+              const redirectUrl = urlParams.get('redirect') || `/${lang}/seller/dashboard`;
+              window.location.href = redirectUrl;
+            } else {
+              console.error('One Tap authentication failed:', data.error);
+            }
+          } else {
+            console.error('Failed to verify One Tap credential on backend');
+          }
+        } catch (err) {
+          console.error('Error verifying One Tap credential:', err);
+        }
+      };
+
+      const initOneTap = () => {
+        const google = window.google;
+        if (google?.accounts?.id) {
+          google.accounts.id.initialize({
+            client_id: googleClientId,
+            callback: handleGoogleOneTapResponse,
+            auto_select: false,
+            cancel_on_tap_outside: false,
+            itp_support: true,
+            use_fedcm_for_prompt: true
+          });
+          google.accounts.id.prompt();
+        }
+      };
+
+      if (!script) {
+        script = document.createElement('script');
+        script.id = scriptId;
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = initOneTap;
+        document.body.appendChild(script);
+      } else {
+        const google = window.google;
+        if (google?.accounts?.id) {
+          initOneTap();
+        } else {
+          script.addEventListener('load', initOneTap);
+        }
+      }
+    })();
+  </script>
+)}

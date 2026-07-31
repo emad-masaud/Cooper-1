@@ -8,12 +8,13 @@ interface Props {
     article?: boolean;
     noindex?: boolean;
     nofollow?: boolean;
+    availableLangs?: string[];
 }
 
-const props = Astro.props;
+const { availableLangs = [], ...props } = Astro.props;
 ---
 
-<Layout {...props} availableLangs={[]}>
+<Layout {...props} availableLangs={availableLangs}>
     <slot name="head" slot="head" />
     <slot />
 </Layout>

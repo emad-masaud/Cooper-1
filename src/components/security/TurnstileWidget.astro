@@ -1,0 +1,23 @@
+---
+interface Props {
+  action?: string;
+  theme?: 'light' | 'dark' | 'auto';
+  lang?: string;
+}
+
+const { action = 'submit', theme = 'auto', lang = 'ar' } = Astro.props;
+// Cloudflare testing public key (always passes) used as fallback if env not set
+const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
+---
+
+<div class="turnstile-wrapper my-4 flex justify-center">
+  <div
+    class="cf-turnstile"
+    data-sitekey={siteKey}
+    data-theme={theme}
+    data-language={lang}
+    data-action={action}
+  ></div>
+</div>
+
+<script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>

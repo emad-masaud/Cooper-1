@@ -1,0 +1,1483 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Card from "~/components/ui/Card.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import Button from "~/components/ui/Button.astro";
+import PhoneInput from "~/components/ui/PhoneInput.astro";
+import { getMeamartSession } from "~/utils/session";
+import { createSupabaseAdminServerClient } from "~/utils/supabase";
+import { languages, ui } from "~/i18n/ui";
+import { useTranslations } from "~/i18n/utils";
+import { categoriesStructure, categoryStyles } from "~/utils/categories";
+import {
+  Car,
+  Home,
+  Briefcase,
+  Wrench,
+  Smartphone,
+  Sofa,
+  ShoppingBag,
+  Baby,
+  PawPrint,
+  Dumbbell,
+  Building2,
+  UtensilsCrossed,
+  Plane,
+  Package,
+  MapPin,
+  Tag,
+  User,
+} from "lucide-react";
+import { customFieldsByCategory } from "~/utils/customFields";
+import { orderedCountries } from "~/utils/countries";
+
+export const prerender = false;
+
+const { lang } = Astro.params;
+const t = useTranslations(lang as keyof typeof languages);
+const isAr = lang === "ar";
+
+const session = await getMeamartSession(Astro);
+if (!session) {
+  return Astro.redirect(
+    `/${lang}/login?redirect=${encodeURIComponent(Astro.url.pathname + Astro.url.search)}`,
+  );
+}
+
+const iconComponents: Record<string, any> = {
+  Car,
+  Home,
+  Briefcase,
+  Wrench,
+  Smartphone,
+  Sofa,
+  ShoppingBag,
+  Baby,
+  PawPrint,
+  Dumbbell,
+  Building2,
+  UtensilsCrossed,
+  Plane,
+  Package,
+  MapPin,
+};
+
+const adminClient = createSupabaseAdminServerClient(Astro);
+const [addressesResult, productsResult, profileResult] = await Promise.all([
+  adminClient
+    .from("seller_addresses")
+    .select("*")
+    .eq("seller_id", session.id)
+    .order("created_at", { ascending: false }),
+  adminClient
+    .from("products")
+    .select("id, name, sku")
+    .eq("seller_id", session.id)
+    .eq("status", "active")
+    .order("created_at", { ascending: false }),
+  adminClient
+    .from("profiles")
+    .select("first_name, last_name, phone_number")
+    .eq("id", session.id)
+    .single(),
+]);
+const sellerAddresses = addressesResult.data || [];
+const sellerProducts = productsResult.data || [];
+const profile = profileResult.data || {};
+const contactName =
+  [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+  session.username ||
+  "";
+const defaultPhone = profile.phone_number || session.phone_number || "";
+---
+
+<Layout
+  title={t["ads.create.page.title"]}
+  description={t["ads.create.page.description"]}
+  hideMobileBottomNav={true}
+>
+  <PageHeader
+    title={t["ads.create.header.title"]}
+    description={t["ads.create.header.description"]}
+  />
+
+  <Container class="pb-32 sm:pb-24 max-w-3xl">
+    <!-- Status Messages -->
+    <div
+      id="form-status"
+      dir={t["gen.isar.create.1"]}
+      class={t["gen.isar.create.2"]}
+    >
+    </div>
+
+    <!-- Stepper Navigation -->
+    <div
+      class="mb-8 bg-white/40 dark:bg-zinc-900/40 p-4 rounded-3xl border border-zinc-200/50 dark:border-zinc-800/50 backdrop-blur-md"
+      id="create-ad-stepper"
+    >
+      <!-- Progress Bar -->
+      <div
+        class="relative w-full h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full mb-4 overflow-hidden"
+      >
+        <div
+          id="step-progress-bar"
+          class="absolute top-0 bottom-0 start-0 bg-primary rounded-full transition-all duration-300"
+          style="width: 16.6%;"
+        >
+        </div>
+      </div>
+      <!-- Steps Labels -->
+      <div
+        class="flex justify-between items-center text-xs font-bold text-zinc-500"
+      >
+        <div
+          class="step-indicator active flex items-center gap-1.5 text-primary cursor-pointer"
+          data-step="1"
+        >
+          <span
+            class="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-[10px]"
+            >1</span
+          >
+          <span class="hidden sm:inline">{t["ads.create.dynamic.1"]}</span>
+        </div>
+        <div
+          class="step-indicator flex items-center gap-1.5 cursor-pointer"
+          data-step="2"
+        >
+          <span
+            class="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-400 flex items-center justify-center text-[10px]"
+            >2</span
+          >
+          <span class="hidden sm:inline">{t["ads.create.dynamic.2"]}</span>
+        </div>
+        <div
+          class="step-indicator flex items-center gap-1.5 cursor-pointer"
+          data-step="3"
+        >
+          <span
+            class="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-400 flex items-center justify-center text-[10px]"
+            >3</span
+          >
+          <span class="hidden sm:inline">{t["ads.create.dynamic.3"]}</span>
+        </div>
+        <div
+          class="step-indicator flex items-center gap-1.5 cursor-pointer"
+          data-step="4"
+        >
+          <span
+            class="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-400 flex items-center justify-center text-[10px]"
+            >4</span
+          >
+          <span class="hidden sm:inline">{t["ads.create.dynamic.4"]}</span>
+        </div>
+        <div
+          class="step-indicator flex items-center gap-1.5 cursor-pointer"
+          data-step="5"
+        >
+          <span
+            class="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-400 flex items-center justify-center text-[10px]"
+            >5</span
+          >
+          <span class="hidden sm:inline">{t["ads.create.dynamic.5"]}</span>
+        </div>
+        <div
+          class="step-indicator flex items-center gap-1.5 cursor-pointer"
+          data-step="6"
+        >
+          <span
+            class="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-400 flex items-center justify-center text-[10px]"
+            >6</span
+          >
+          <span class="hidden sm:inline">{t["ads.create.dynamic.6"]}</span>
+        </div>
+      </div>
+      <!-- Mobile Only Step Text -->
+      <div
+        class="sm:hidden text-center text-xs font-bold text-primary mt-2"
+        id="step-mobile-label"
+      >
+        {t["ads.create.step.mobile.1"]}
+      </div>
+    </div>
+
+    <form id="create-ad-form" class="space-y-6 sm:space-y-8">
+      <!-- Manual Ad Creation -->
+
+      <!-- SECTION 2: Category Selection -->
+      <div
+        id="section-additional"
+        class="rounded-3xl border border-zinc-200/50 bg-white/60 p-5 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60"
+      >
+        <h2
+          class="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-6 flex items-center gap-2"
+        >
+          <Tag className="h-5 w-5 text-primary" />
+          <span>{t["ads.create.dynamic.45"]}</span>
+        </h2>
+
+        {/* Parent Categories Grid */}
+        <div
+          class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6"
+        >
+          {
+            categoriesStructure.map((group) => {
+              const IconComponent = iconComponents[group.icon] || Tag;
+              const style = categoryStyles[group.key] || {
+                bg: "bg-zinc-50 dark:bg-zinc-800/30",
+                text: "text-zinc-650 dark:text-zinc-300",
+                border: "border-zinc-150 dark:border-zinc-800/30",
+                hoverBg: "group-hover:bg-zinc-600 dark:group-hover:bg-zinc-500",
+                hoverText: "group-hover:text-white",
+              };
+
+              return (
+                <button
+                  type="button"
+                  data-category={group.key}
+                  class="parent-category-card group flex flex-col items-center justify-center rounded-2xl border border-zinc-200/50 bg-white dark:border-zinc-800/50 dark:bg-zinc-950/40 p-4 text-center transition-all duration-300 hover:border-primary/20 hover:shadow-md cursor-pointer hover:scale-[1.02]"
+                >
+                  <div
+                    class={`mb-3 flex h-12 w-12 items-center justify-center rounded-full border ${style.bg} ${style.text} ${style.border} transition-all duration-300 ${style.hoverBg} ${style.hoverText} shadow-xs icon-container`}
+                  >
+                    <IconComponent className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
+                  </div>
+                  <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 truncate max-w-full">
+                    {isAr ? group.labelAr : group.labelEn}
+                  </span>
+                </button>
+              );
+            })
+          }
+        </div>
+
+        {/* Subcategories Container */}
+        <div
+          id="subcategories-container"
+          class="hidden border-t border-zinc-200/50 dark:border-zinc-800/50 pt-6"
+        >
+          <label
+            class="block text-xs font-extrabold text-zinc-500 dark:text-zinc-400 mb-3 uppercase tracking-wider"
+          >
+            {t["ads.create.dynamic.46"]} *
+          </label>
+          <div
+            id="subcategories-grid"
+            class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"
+          >
+            {/* Populated dynamically via JavaScript */}
+          </div>
+        </div>
+
+        {
+          /* Hidden original select to maintain compatibility with all JS listeners */
+        }
+        <select
+          name="categoryKey"
+          id="real-category-select"
+          required
+          class="hidden"
+        >
+          <option value="" disabled selected>اختر القسم</option>
+          {
+            categoriesStructure.map((group) => (
+              <optgroup
+                label={isAr ? group.labelAr : group.labelEn}
+                data-parent={group.key}
+              >
+                {group.children.map((c) => (
+                  <option value={c.key} data-parent={group.key}>
+                    {isAr ? c.ar : c.en}
+                  </option>
+                ))}
+              </optgroup>
+            ))
+          }
+        </select>
+        <input type="hidden" name="listing_status" value="active" />
+      </div>
+
+      <!-- SECTION 2: Custom Fields -->
+      <div
+        id="section-custom-fields"
+        class="rounded-3xl border border-zinc-200/50 bg-white/60 p-5 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60"
+      >
+        <h2 class="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-6">
+          {t["ads.create.section.customFields"]}
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Category Specific Fields Container -->
+          <div class="md:col-span-2">
+            <h3
+              class="text-sm font-bold text-zinc-800 dark:text-zinc-200 mb-4 hidden"
+              id="custom-fields-heading"
+            >
+              {t["ads.create.field.additionalSpecs"]}
+            </h3>
+            <div
+              id="custom-fields-container"
+              class="grid grid-cols-1 md:grid-cols-2 gap-6"
+            >
+              <!-- Dynamically populated via JS -->
+            </div>
+          </div>
+
+          <div id="custom-fields-metadata" class="hidden"></div>
+
+          <!-- Custom Key-Value Fields -->
+          <div class="md:col-span-2 border-t border-zinc-200/30 pt-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-200">
+                {t["ads.create.field.customFields.label"]}
+              </h3>
+              <button
+                type="button"
+                id="add-custom-field-btn"
+                class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors dark:bg-primary/20 dark:hover:bg-primary/30"
+              >
+                {t["ads.create.field.customFields.addButton"]}
+              </button>
+            </div>
+            <div id="custom-key-value-container" class="space-y-3">
+              <!-- Dynamically added key-value pairs -->
+            </div>
+            <p class="text-xs text-zinc-550 dark:text-zinc-400 mt-2">
+              {t["ads.create.field.customFields.hint"]}
+            </p>
+          </div>
+
+          <!-- Hidden Coordinate Fields -->
+          <input type="hidden" name="listing_latitude" id="lat-input" />
+          <input type="hidden" name="listing_longitude" id="lng-input" />
+          <input type="hidden" name="listing_place_id" id="place-id-input" />
+          <input type="hidden" name="listing_gmaps_url" id="gmaps-url-input" />
+          <div
+            id="gmaps-key"
+            data-key={import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY ||
+              process.env.PUBLIC_GOOGLE_MAPS_API_KEY ||
+              process.env.GOOGLE_MAPS_API_KEY ||
+              "AIzaSyCDwx8Lxi8TTwvzxnGwkCHc6D_jzFaJyLU"}
+            data-lang={t["gen.isar.create.8"]}
+            class="hidden"
+          >
+          </div>
+        </div>
+
+        <!-- Checkboxes -->
+        <div
+          class="flex items-center gap-6 mt-6 pt-4 border-t border-zinc-200/30 dark:border-zinc-800/50"
+        >
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="listing_negotiable"
+              class="rounded border-zinc-300 text-primary focus:ring-primary dark:border-zinc-700"
+            />
+            <span class="text-xs font-bold text-zinc-600 dark:text-zinc-400">
+              {t["ads.create.checkbox.negotiable"]}
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- SECTION 3: Price & Catalog -->
+      <div
+        id="section-price-catalog"
+        class="hidden rounded-3xl border border-zinc-200/50 bg-white/60 p-5 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60"
+      >
+        <h2 class="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-6">
+          {t["ads.create.dynamic.12"]}
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div id="catalog-products-metadata" class="hidden"></div>
+
+          <!-- Alert when price is not needed (e.g., jobs) -->
+          <div
+            id="price-not-needed-alert"
+            class="md:col-span-2 p-6 rounded-full border border-primary/20 bg-primary/5 text-primary text-center font-bold hidden text-xs sm:text-sm"
+          >
+            {
+              t["ads.create.priceNotNeeded"] ||
+                (isAr
+                  ? "هذا القسم لا يتطلب تحديد السعر."
+                  : "This category does not require a price.")
+            }
+          </div>
+
+          <!-- Catalog Product Search Dropdown -->
+          <div
+            class="md:col-span-2 rounded-full border border-primary/20 bg-primary/5 p-4 hidden"
+            id="catalog-product-selector-container"
+          >
+            <label
+              class="block text-xs font-bold text-primary mb-2 flex items-center gap-1.5"
+            >
+              <svg
+                class="w-4 h-4 text-primary animate-pulse"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+              <span>{t["ads.create.catalog.search.label"]}</span>
+            </label>
+
+            <div class="relative">
+              <input
+                type="text"
+                id="catalog-search-input"
+                placeholder={t["ads.create.catalog.search.placeholder"]}
+                class="w-full rounded-xl border border-zinc-200 bg-white/80 py-2.5 px-4 text-sm outline-hidden focus:border-primary focus:ring-1 focus:ring-primary dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-50"
+                autocomplete="off"
+              />
+              <div
+                id="catalog-search-results"
+                class="absolute z-50 left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-950 hidden"
+              >
+                <!-- Options will be populated here -->
+              </div>
+            </div>
+
+            <div
+              id="selected-product-badge"
+              class="hidden mt-2 items-center justify-between bg-primary/10 text-primary rounded-xl px-3 py-2.5 text-xs font-bold"
+            >
+              <div class="flex items-center gap-2">
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span id="selected-product-name"></span>
+              </div>
+              <button
+                type="button"
+                id="clear-selected-product"
+                class="text-red-500 hover:text-red-755 font-bold text-xs select-none cursor-pointer border border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-500/10 px-2.5 py-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20 transition-all"
+              >
+                {t["ads.create.catalog.manualEdit"]}
+              </button>
+            </div>
+          </div>
+
+          <!-- Price -->
+          <div
+            id="price-container"
+            class="w-full"
+            data-default-label={t["ads.create.field.price.label"]}
+            data-salary-label={t["ads.create.field.salary.label"]}
+            data-optional-text={t["ads.create.optional"]}
+          >
+            <label id="price-label" class="form-label">
+              {t["ads.create.field.price.label"]} *
+            </label>
+            <input
+              type="number"
+              id="price-input"
+              name="listing_price"
+              required
+              min="0"
+              placeholder="4300"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Currency -->
+          <div
+            id="currency-container"
+            class="w-full"
+            data-default-label={t["ads.create.field.currency.label"]}
+          >
+            <label id="currency-label" class="form-label">
+              {t["ads.create.field.currency.label"]} *
+            </label>
+            <select
+              name="listing_currency"
+              id="currency-input"
+              required
+              class="form-select"
+            >
+              <option value="SAR">﷼ (SAR)</option>
+              <option value="USD">$ (USD)</option>
+              <option value="EUR">€ (EUR)</option>
+            </select>
+          </div>
+
+          <!-- Delivery Service Options Section -->
+          <div
+            class="md:col-span-2 border-t border-zinc-200/50 dark:border-zinc-800/50 pt-6 mt-4 space-y-4"
+          >
+            <h3
+              class="text-sm font-bold text-zinc-850 dark:text-zinc-150 flex items-center gap-1.5"
+            >
+              <svg
+                class="w-4 h-4 text-primary"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124l-.318-5.085a2.25 2.25 0 0 0-2.23-2.112h-3.375V9.75m0 9H18.75m-6 0v-6h-3.75V15m0-6h1.125c.621 0 1.129.504 1.09 1.124l-.318 5.085a2.25 2.25 0 0 0-2.23 2.112h-3.375v-1.125m-3 0h3.375a1.125 1.125 0 0 0 1.125-1.125V9.75M9 9.75H3.375c-.621 0-1.129.504-1.09 1.124l.318 5.085a2.25 2.25 0 0 0 2.23 2.112h3.375v-1.125"
+                ></path></svg
+              >
+              <span>{t["ads.create.dynamic.13"]}</span>
+            </h3>
+
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                id="offers-delivery-checkbox"
+                name="offers_delivery"
+                class="rounded-sm border-zinc-300 dark:border-zinc-700 text-primary focus:ring-primary focus:ring-offset-0 w-4.5 h-4.5"
+              />
+              <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300"
+                >{t["ads.create.dynamic.14"]}</span
+              >
+            </label>
+
+            <!-- Expanded Delivery Fields -->
+            <div
+              id="delivery-config-fields"
+              class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4 p-5 rounded-2xl border border-zinc-150 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 animate-in fade-in duration-300"
+            >
+              <div>
+                <label
+                  class="block text-xs font-bold text-zinc-650 dark:text-zinc-400 mb-1"
+                  >{t["ads.create.dynamic.15"]}</label
+                >
+                <select
+                  name="delivery_scope"
+                  id="delivery-scope-select"
+                  class="w-full rounded-full border border-zinc-200 bg-white/80 py-2.5 px-4 text-xs dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-50"
+                >
+                  <option value="ad" selected
+                    >{t["ads.create.dynamic.16"]}</option
+                  >
+                  <option value="seller_all"
+                    >{t["ads.create.dynamic.17"]}</option
+                  >
+                  <option value="public_all"
+                    >{t["ads.create.dynamic.18"]}</option
+                  >
+                </select>
+              </div>
+
+              <div>
+                <label
+                  class="block text-xs font-bold text-zinc-650 dark:text-zinc-400 mb-1"
+                  >{t["ads.create.dynamic.19"]}</label
+                >
+                <input
+                  type="text"
+                  name="delivery_vehicle_type"
+                  id="delivery-vehicle-input"
+                  class="w-full rounded-full border border-zinc-200 bg-white/80 py-2.5 px-4 text-xs dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-50"
+                  placeholder={t["ads.create.dynamic.20"]}
+                />
+              </div>
+
+              <div>
+                <label
+                  class="block text-xs font-bold text-zinc-650 dark:text-zinc-400 mb-1"
+                  >{t["ads.create.dynamic.21"]}</label
+                >
+                <div class="grid grid-cols-2 gap-2 mt-1">
+                  <label
+                    class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-350 cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      name="delivery_type"
+                      value="products"
+                      checked
+                      class="rounded-sm text-primary w-3.5 h-3.5"
+                    />
+                    <span>{t["ads.create.dynamic.22"]}</span>
+                  </label>
+                  <label
+                    class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-350 cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      name="delivery_type"
+                      value="refrigerated"
+                      class="rounded-sm text-primary w-3.5 h-3.5"
+                    />
+                    <span>{t["ads.create.dynamic.23"]}</span>
+                  </label>
+                  <label
+                    class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-355 cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      name="delivery_type"
+                      value="people"
+                      class="rounded-sm text-primary w-3.5 h-3.5"
+                    />
+                    <span>{t["ads.create.dynamic.24"]}</span>
+                  </label>
+                  <label
+                    class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-355 cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      name="delivery_type"
+                      value="travel"
+                      class="rounded-sm text-primary w-3.5 h-3.5"
+                    />
+                    <span>{t["ads.create.dynamic.25"]}</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  class="block text-xs font-bold text-zinc-650 dark:text-zinc-400 mb-1"
+                  >{t["ads.create.dynamic.26"]}</label
+                >
+                <input
+                  type="text"
+                  name="delivery_coverage_cities"
+                  id="delivery-cities-input"
+                  class="w-full rounded-full border border-zinc-200 bg-white/80 py-2.5 px-4 text-xs dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-50"
+                  placeholder={t["ads.create.dynamic.27"]}
+                />
+              </div>
+
+              <div class="sm:col-span-2">
+                <label
+                  class="block text-xs font-bold text-zinc-650 dark:text-zinc-400 mb-1"
+                  >{t["ads.create.dynamic.28"]}</label
+                >
+                <div class="grid grid-cols-3 gap-2 mt-1">
+                  <label
+                    class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-350 cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      name="delivery_features"
+                      value="shopping"
+                      class="rounded-sm text-primary w-3.5 h-3.5"
+                    />
+                    <span>{t["ads.create.dynamic.29"]}</span>
+                  </label>
+                  <label
+                    class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-350 cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      name="delivery_features"
+                      value="waiting"
+                      class="rounded-sm text-primary w-3.5 h-3.5"
+                    />
+                    <span>{t["ads.create.dynamic.30"]}</span>
+                  </label>
+                  <label
+                    class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-350 cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      name="delivery_features"
+                      value="setup"
+                      class="rounded-sm text-primary w-3.5 h-3.5"
+                    />
+                    <span>{t["ads.create.dynamic.31"]}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 5: Media -->
+      <div
+        id="section-media"
+        class="rounded-3xl border border-zinc-200/50 bg-white/60 p-5 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60"
+      >
+        <h2 class="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-6">
+          {t["ads.create.section.media"]}
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Product Image Upload -->
+          <div class="md:col-span-2">
+            <label
+              class="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-3"
+            >
+              {t["ads.create.field.image.label"]} *
+            </label>
+
+            <!-- Drop Zone -->
+            <div
+              id="image-drop-zone"
+              class="relative w-full max-w-[200px] aspect-square mx-auto rounded-3xl border-2 border-dashed border-zinc-300 bg-white/40 dark:border-zinc-700 dark:bg-zinc-900/40 transition-all duration-200 cursor-pointer hover:border-primary hover:bg-primary/5 dark:hover:border-primary dark:hover:bg-primary/5 flex flex-col items-center justify-center overflow-hidden"
+            >
+              <input
+                type="file"
+                id="ad-image-input"
+                accept="image/*,.pdf,.md,.mdx"
+                multiple
+                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              />
+
+              <div
+                id="drop-placeholder"
+                class="flex flex-col items-center justify-center gap-3 py-10 px-6 text-center pointer-events-none"
+              >
+                <div
+                  class="w-14 h-14 rounded-2x1 bg-primary/10 dark:bg-primary/20 flex items-center justify-center"
+                >
+                  <svg
+                    class="w-7 h-7 text-primary"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v13.5A1.5 1.5 0 003.75 21zm10.5-11.25h.008v.008h-.008V9.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                    ></path>
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-sm font-bold text-zinc-700 dark:text-zinc-200">
+                    {t["ads.create.media.dropzone.title"]}
+                  </p>
+                  <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
+                    {t["ads.create.media.dropzone.subtitle"]}
+                  </p>
+                </div>
+                <span
+                  class="text-xs font-semibold px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+                >
+                  JPG · PNG · WEBP
+                </span>
+              </div>
+
+              <!-- Previews grid (shown after files selected) -->
+              <div
+                id="image-previews"
+                class="hidden p-4 grid grid-cols-3 sm:grid-cols-4 gap-3"
+              >
+              </div>
+            </div>
+
+            <!-- Add more photos button (visible after first selection) -->
+            <button
+              type="button"
+              id="add-more-photos-btn"
+              class="hidden mt-3 w-full rounded-full border border-dashed border-zinc-300 dark:border-zinc-700 py-2.5 text-xs font-bold text-zinc-500 dark:text-zinc-400 hover:border-primary hover:text-primary transition-all"
+            >
+              {t["ads.create.media.addMore"]}
+            </button>
+
+            <!-- No-image option -->
+            <div class="mt-4 flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="no-image-checkbox"
+                class="rounded-sm border-zinc-300 text-primary focus:ring-primary dark:border-zinc-700 dark:bg-zinc-900 h-4 w-4"
+              />
+              <label
+                for="no-image-checkbox"
+                class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 cursor-pointer select-none"
+              >
+                {t["ads.create.field.noImage.label"]}
+              </label>
+            </div>
+
+            <!-- Hidden card used for screenshot when no image is uploaded -->
+            <div
+              id="no-image-card-preview"
+              style="position:fixed;top:-9999px;left:-9999px;width:800px;background:#09090b;"
+              aria-hidden="true"
+            >
+              <div
+                style="
+                width:800px;
+                height:450px;
+                background:linear-gradient(135deg, #0b1220 0%, #0f172a 52%, #111827 100%);
+                border-radius:28px;
+                border:1.5px solid rgba(148,163,184,0.32);
+                padding:40px 48px;
+                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+                box-shadow:0 8px 40px rgba(0,0,0,0.3);
+                display:flex;
+                flex-direction:column;
+                justify-content:space-between;
+                gap:20px;
+                box-sizing:border-box;
+              "
+              >
+                <h2
+                  id="nip-title"
+                  style="font-size:36px;font-weight:900;color:#ffffff;margin:0;line-height:1.2;letter-spacing:-0.5px;word-break:break-word;"
+                >
+                </h2>
+                <p
+                  id="nip-desc"
+                  style="font-size:16px;color:#a1a1aa;margin:0;line-height:1.7;flex:1;word-break:break-word;overflow:hidden;"
+                >
+                </p>
+                <div
+                  style="display:flex;align-items:center;justify-content:space-between;padding-top:16px;border-top:1.5px solid rgba(63,63,70,0.3);margin-top:auto;"
+                >
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <div
+                      id="nip-avatar"
+                      style="width:44px;height:44px;border-radius:9999px;background:rgba(56,189,248,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#7dd3fc;"
+                    >
+                    </div>
+                    <span
+                      id="nip-seller"
+                      style="font-size:15px;font-weight:700;color:#f4f4f5;"
+                    ></span>
+                  </div>
+                  <div style="text-align:end;">
+                    <div
+                      style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:2px;"
+                    >
+                      السعر
+                    </div>
+                    <div
+                      id="nip-price"
+                      style="font-size:24px;font-weight:900;color:#38bdf8;"
+                    >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Video URL + Primary toggle -->
+          <div class="md:col-span-2">
+            <label class="form-label">
+              {t["ads.create.field.video.label"]}
+            </label>
+            <input
+              type="text"
+              name="video_url"
+              id="video-url-input"
+              placeholder="https://youtube.com/watch?v=..."
+              class="form-input"
+            />
+            <!-- Video as primary toggle (hidden until URL is entered) -->
+            <div
+              id="video-primary-wrap"
+              class="hidden mt-3 flex items-center gap-2"
+            >
+              <input
+                type="checkbox"
+                name="video_primary"
+                id="video-primary-checkbox"
+                class="rounded-sm border-zinc-300 text-primary focus:ring-primary dark:border-zinc-700 dark:bg-zinc-900 h-4 w-4"
+              />
+              <label
+                for="video-primary-checkbox"
+                class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 cursor-pointer select-none"
+              >
+                {t["ads.create.media.videoPrimary"]}
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 4: Location -->
+      <div
+        id="section-location"
+        class="rounded-3xl border border-zinc-200/50 bg-white/60 p-5 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60"
+      >
+        <h2 class="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-6">
+          {t["ads.create.section.location"]}
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {
+            sellerAddresses.length > 0 && (
+              <div class="md:col-span-2">
+                <label class="block text-xs font-bold text-primary mb-2">
+                  {t["ads.create.addresses.label"]}
+                </label>
+                <select
+                  id="saved-address-select"
+                  class="w-full rounded-full border border-primary/20 bg-primary/5 py-3 px-4 text-sm outline-hidden focus:border-primary focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-950/20 dark:focus:border-zinc-650 dark:text-zinc-50 font-semibold text-primary"
+                >
+                  <option value="">
+                    {t["ads.create.addresses.placeholder"]}
+                  </option>
+                  {sellerAddresses.map((addr: any) => (
+                    <option
+                      value={addr.id}
+                      data-address={addr.address}
+                      data-city={addr.city}
+                      data-district={addr.district}
+                      data-lat={addr.lat}
+                      data-lng={addr.lng}
+                    >
+                      {addr.name} (
+                      {addr.type === "delivery"
+                        ? t["gen.isar.create.3"]
+                        : t["gen.isar.create.4"]}
+                      ) - {addr.city}, {addr.district}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
+          }
+
+          <!-- Address / Search field -->
+          <div class="md:col-span-2">
+            <label class="form-label">
+              {t["ads.create.field.address.label"]}
+            </label>
+            <input
+              type="text"
+              name="listing_address"
+              id="address-input"
+              placeholder={t["ads.create.field.address.placeholder"]}
+              class="form-input"
+            />
+          </div>
+
+          <div id="sa-short-address-wrap" class="md:col-span-2">
+            <label class="form-label">
+              {t["gen.isar.create.5"]}
+            </label>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                id="sa-short-address-input"
+                placeholder={t["gen.isar.create.6"]}
+                class="form-input"
+              />
+              <button
+                type="button"
+                id="sa-short-address-btn"
+                class="rounded-full border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary font-bold px-4 py-3 text-sm transition-colors"
+              >
+                {t["gen.isar.create.7"]}
+              </button>
+            </div>
+            <p
+              id="sa-short-address-status"
+              class="mt-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400"
+            >
+            </p>
+          </div>
+
+          <!-- Map Container -->
+          <div class="md:col-span-2" id="map-container-wrapper">
+            <div
+              id="map-container"
+              class="h-64 w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-inner bg-zinc-100 dark:bg-zinc-950"
+            >
+            </div>
+          </div>
+
+          <!-- Country -->
+          <div>
+            <label class="form-label">
+              {t["ads.create.field.country.label"]}
+            </label>
+            <select
+              name="listing_country"
+              id="country-input"
+              class="form-select"
+            >
+              {
+                orderedCountries.map((c) => (
+                  <option
+                    value={c.en}
+                    data-code={c.code}
+                    selected={c.code === "SA"}
+                  >
+                    {isAr ? c.ar : c.en}
+                  </option>
+                ))
+              }
+            </select>
+          </div>
+
+          <!-- City -->
+          <div>
+            <label class="form-label">
+              {t["ads.create.field.city.label"]}
+            </label>
+            <input
+              type="text"
+              name="listing_city"
+              id="city-input"
+              placeholder={t["ads.create.field.city.placeholder"]}
+              class="form-input"
+            />
+          </div>
+
+          <!-- District -->
+          <div>
+            <label class="form-label">
+              {t["ads.create.field.district.label"]}
+            </label>
+            <input
+              type="text"
+              name="listing_district"
+              id="district-input"
+              placeholder={t["ads.create.field.district.placeholder"]}
+              class="form-input"
+            />
+          </div>
+
+          <!-- Street -->
+          <div>
+            <label class="form-label">
+              {t["ads.create.field.street.label"]}
+            </label>
+            <input
+              type="text"
+              name="listing_street"
+              id="street-input"
+              placeholder={t["ads.create.field.street.placeholder"]}
+              class="form-input"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION: Role Selection -->
+      <div
+        id="section-role-selection"
+        class="rounded-3xl border border-zinc-200/50 bg-white/60 p-5 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60"
+      >
+        <h2
+          class="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-6 flex items-center gap-2"
+        >
+          <User className="h-5 w-5 text-primary" />
+          <span>{t["ads.create.dynamic.32"]}</span>
+        </h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label
+            class="role-card group flex items-center gap-3 p-4 rounded-2xl border border-primary bg-primary/5 cursor-pointer hover:shadow-md transition-all select-none"
+          >
+            <input
+              type="radio"
+              name="advertiser_role"
+              value="individual"
+              checked
+              class="hidden"
+            />
+            <div
+              class="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center shrink-0"
+            >
+              <div class="w-2.5 h-2.5 rounded-full bg-primary dot"></div>
+            </div>
+            <div>
+              <span
+                class="block text-sm font-bold text-zinc-850 dark:text-zinc-200"
+                >{t["ads.create.dynamic.33"]}</span
+              >
+              <span class="block text-[11px] text-zinc-500 dark:text-zinc-400"
+                >{t["ads.create.dynamic.34"]}</span
+              >
+            </div>
+          </label>
+
+          <label
+            class="role-card group flex items-center gap-3 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/40 cursor-pointer hover:shadow-md transition-all select-none"
+          >
+            <input
+              type="radio"
+              name="advertiser_role"
+              value="company"
+              class="hidden"
+            />
+            <div
+              class="w-5 h-5 rounded-full border-2 border-zinc-300 dark:border-zinc-700 flex items-center justify-center shrink-0"
+            >
+              <div class="w-2.5 h-2.5 rounded-full bg-transparent dot"></div>
+            </div>
+            <div>
+              <span
+                class="block text-sm font-bold text-zinc-850 dark:text-zinc-200"
+                >{t["ads.create.dynamic.35"]}</span
+              >
+              <span class="block text-[11px] text-zinc-500 dark:text-zinc-400"
+                >{t["ads.create.dynamic.36"]}</span
+              >
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- SECTION 2: Advertiser Details -->
+      <div
+        id="section-main-fields"
+        class="rounded-3xl border border-zinc-200/50 bg-white/60 p-5 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60"
+      >
+        <h2 class="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-6">
+          {t["ads.create.dynamic.7"]}
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Contact Name -->
+          <div>
+            <label class="form-label">
+              {t["ads.create.field.contactName.label"]} *
+            </label>
+            <input
+              type="text"
+              name="contact_name"
+              required
+              value={contactName}
+              placeholder={t["ads.create.field.contactName.placeholder"]}
+              class="form-input"
+            />
+          </div>
+
+          <!-- Contact WhatsApp -->
+          <PhoneInput
+            name="contact_whatsapp"
+            label={t["ads.create.field.whatsapp.label"]}
+            value={defaultPhone}
+            required={true}
+          />
+        </div>
+      </div>
+
+      <!-- SECTION 6: Final Description -->
+      <Card
+        class="border-primary/20 bg-primary/5 p-6 space-y-4 transition-all duration-300 shadow-none rounded-3xl"
+        id="section-description"
+      >
+        <div
+          class="flex items-center justify-between pb-3 border-b border-primary/10"
+        >
+          <div class="flex items-center gap-2 text-primary">
+            <svg
+              class="w-5 h-5 animate-pulse"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M9.813 15.904L9 21l-.813-5.096L3 15l5.096-.813L9 9l.813 5.187L15 15l-5.187.904z"
+              ></path>
+            </svg>
+            <span class="font-bold text-sm"
+              >{t["ads.create.field.description.label"]}</span
+            >
+          </div>
+          <span
+            class="text-[10px] font-extrabold bg-primary/15 text-primary px-2.5 py-1 rounded-full"
+            >{t["ads.create.step.review"]}</span
+          >
+        </div>
+
+        <!-- Auto-Generated Title and Description -->
+        <div class="space-y-4">
+          <div>
+            <label
+              class="form-label text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1 block"
+            >
+              {t["ads.create.field.title.label"] || "Ad Title"}
+            </label>
+            <input
+              type="text"
+              name="listing_title"
+              id="ad-title"
+              class="form-input text-lg font-bold"
+              required
+            />
+          </div>
+          <div>
+            <label
+              class="form-label text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1 block"
+            >
+              {t["ads.create.field.description.label"] || "Ad Description"}
+            </label>
+            <textarea
+              name="listing_description"
+              id="listing-description-textarea"
+              class="form-textarea min-h-[320px] text-sm leading-relaxed"
+              required></textarea>
+          </div>
+        </div>
+      </Card>
+
+      <!-- SECTION 8: Publish Action -->
+      <div id="section-publish" class="space-y-4">
+        <!-- Submit Button -->
+        <button
+          type="submit"
+          id="submit-btn"
+          class="hidden sm:block w-1/4 mx-auto rounded-full bg-primary py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-primary/90 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+        >
+          {t["ads.create.button.publish"]}
+        </button>
+
+        <!-- Switch Language Info & Button -->
+        <div
+          class="pt-6 border-t border-zinc-200/50 dark:border-zinc-800/50 flex flex-col items-center gap-3"
+        >
+          <p
+            class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 text-center"
+          >
+            {t["ads.create.switchLang.info"]}
+          </p>
+          <button
+            type="button"
+            id="switch-lang-btn"
+            class="rounded-full border border-zinc-200 bg-white/80 py-2.5 px-6 text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition-all dark:border-zinc-800 dark:bg-zinc-950/80 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            {t["ads.create.switchLang.button"]}
+          </button>
+        </div>
+      </div>
+
+      <!-- Desktop Navigation Buttons -->
+      <div
+        class="flex justify-between items-center mt-8 pt-6 border-t border-zinc-200/50 dark:border-zinc-800/50"
+        id="desktop-step-navigation"
+      >
+        <button
+          type="button"
+          id="prev-step-btn"
+          class="hidden px-6 py-3 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 font-bold text-sm transition-all hover:bg-zinc-200/80 dark:hover:bg-zinc-700 active:scale-95"
+        >
+          {t["ads.create.nav.prevStep"]}
+        </button>
+        <div
+          class="flex-1 text-center text-sm font-bold text-zinc-550 dark:text-zinc-400"
+          id="desktop-step-counter"
+        >
+        </div>
+        <button
+          type="button"
+          id="next-step-btn"
+          class="px-6 py-3 rounded-full bg-primary text-white font-bold text-sm transition-all hover:bg-primary/90 active:scale-95 flex items-center gap-2"
+        >
+          <span>{t["ads.create.nav.nextStep"]}</span>
+          <svg
+            class="w-4 h-4 rtl:rotate-180"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M9 5l7 7-7 7"></path>
+          </svg>
+        </button>
+      </div>
+    </form>
+
+    <!-- Sticky Bottom Bar for mobile devices -->
+    <div
+      class="fixed bottom-0 left-0 right-0 z-50 bg-white/80 dark:bg-zinc-950/80 border-t border-zinc-200/50 dark:border-zinc-800/50 p-4 backdrop-blur-lg flex justify-between items-center sm:hidden shadow-[0_-8px_30px_rgb(0,0,0,0.12)]"
+      id="mobile-step-navigation"
+    >
+      <button
+        type="button"
+        id="prev-step-btn-mobile"
+        class="hidden px-5 py-3 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 font-bold text-sm transition-all active:scale-95"
+      >
+        {t["ads.create.nav.prev"]}
+      </button>
+      <div
+        class="flex-1 text-center text-xs font-bold text-zinc-550 dark:text-zinc-400"
+        id="mobile-step-counter"
+      >
+      </div>
+      <button
+        type="button"
+        id="next-step-btn-mobile"
+        class="px-6 py-3 rounded-full bg-primary text-white font-bold text-sm transition-all active:scale-95 flex items-center gap-2"
+      >
+        <span>{t["ads.create.nav.next"]}</span>
+        <svg
+          class="w-4 h-4 rtl:rotate-180"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"
+          ></path>
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="submit-btn-mobile"
+        class="hidden px-6 py-3 rounded-full bg-primary text-white font-bold text-sm transition-all active:scale-95"
+      >
+        {t["ads.create.button.publish"]}
+      </button>
+    </div>
+  </Container>
+</Layout>
+
+<style is:global>
+  .was-validated input:invalid,
+  .was-validated select:invalid,
+  .was-validated textarea:invalid {
+    border-color: #ef4444 !important;
+  }
+  .was-validated input:invalid:focus,
+  .was-validated select:invalid:focus,
+  .was-validated textarea:invalid:focus {
+    --tw-ring-color: #ef4444 !important;
+  }
+</style>
+
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+  defer></script>
+<script is:inline define:vars={{ translations: ui[lang as string] || ui["en"] }}
+>
+  window.__meamartTranslations = translations;
+</script>
+<script>
+  import "~/components/islands/CreateAdManager.ts";
+</script>
+
+<script is:inline>
+  // URL Pre-fill: Read query params and auto-fill form fields
+  document.addEventListener("DOMContentLoaded", function () {
+    var params = new URLSearchParams(window.location.search);
+    if (params.toString() === "") return;
+
+    var fieldMap = {
+      title: ['input[name="listing_title"]', "#ad-title"],
+      listing_title: ['input[name="listing_title"]', "#ad-title"],
+      desc: [
+        'textarea[name="listing_description"]',
+        "#listing-description-textarea",
+      ],
+      description: [
+        'textarea[name="listing_description"]',
+        "#listing-description-textarea",
+      ],
+      price: ['input[name="listing_price"]', "#price-input", "#ad-price"],
+      listing_price: [
+        'input[name="listing_price"]',
+        "#price-input",
+        "#ad-price",
+      ],
+      currency: ['select[name="listing_currency"]'],
+      listing_currency: ['select[name="listing_currency"]'],
+      condition: ['select[name="listing_condition"]', "#condition-input"],
+      listing_condition: [
+        'select[name="listing_condition"]',
+        "#condition-input",
+      ],
+      city: [
+        'select[name="listing_city"]',
+        'input[name="listing_city"]',
+        "#city-input",
+        "#ad-city",
+      ],
+      listing_city: [
+        'select[name="listing_city"]',
+        'input[name="listing_city"]',
+        "#city-input",
+        "#ad-city",
+      ],
+      district: ['input[name="listing_district"]'],
+      listing_district: ['input[name="listing_district"]'],
+      categoryKey: ['select[name="categoryKey"]', "#real-category-select"],
+      category: ['select[name="categoryKey"]', "#real-category-select"],
+      name: ['input[name="contact_name"]'],
+      contact_name: ['input[name="contact_name"]'],
+      whatsapp: ['input[name="contact_whatsapp"]'],
+      contact_whatsapp: ['input[name="contact_whatsapp"]'],
+      phone: ['input[name="contact_phone"]'],
+      contact_phone: ['input[name="contact_phone"]'],
+      contact_method: ['select[name="contact_method"]'],
+    };
+
+    function tryFill(selectors, value) {
+      if (!value) return false;
+      for (var i = 0; i < selectors.length; i++) {
+        var el = document.querySelector(selectors[i]);
+        if (el) {
+          el.value = decodeURIComponent(value);
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+          if (el.hasAttribute("readonly")) el.removeAttribute("readonly");
+          if (el.classList.contains("cursor-not-allowed"))
+            el.classList.remove("cursor-not-allowed");
+          if (el.classList.contains("opacity-80"))
+            el.classList.remove("opacity-80");
+          return true;
+        }
+      }
+      return false;
+    }
+
+    var filled = false;
+    var retryCount = 0;
+    function attemptFill() {
+      var anyFilled = false;
+      params.forEach(function (value, key) {
+        var selectors = fieldMap[key];
+        if (selectors) {
+          if (tryFill(selectors, value)) anyFilled = true;
+        }
+        // Support custom fields: custom_field_xxx=value
+        if (key.startsWith("custom_field_")) {
+          tryFill(
+            [
+              'input[name="' + key + '"]',
+              'select[name="' + key + '"]',
+              'textarea[name="' + key + '"]',
+            ],
+            value,
+          );
+        }
+      });
+      if (anyFilled) {
+        filled = true;
+        // Dispatch prefill event for IntentWorkflow
+        window.dispatchEvent(
+          new CustomEvent("meamart:url_prefilled", {
+            detail: Object.fromEntries(params),
+          }),
+        );
+      } else if (retryCount < 5) {
+        retryCount++;
+        setTimeout(attemptFill, 500);
+      }
+    }
+
+    // Wait a tick for dynamic fields to render
+    setTimeout(attemptFill, 300);
+  });
+</script>
+<style is:global>
+  /* Fix Google Maps Autocomplete z-index on Mobile */
+  .pac-container {
+    z-index: 999999 !important;
+  }
+</style>

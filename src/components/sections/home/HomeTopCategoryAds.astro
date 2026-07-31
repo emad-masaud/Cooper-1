@@ -1,0 +1,68 @@
+---
+import { useTranslations } from '~/i18n/utils';
+import AdCard from '~/components/ui/AdCard.astro';
+
+interface AdItem {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  price: number;
+  currency?: string;
+  categoryKey: string;
+  categoryAr: string;
+  categoryEn: string;
+  cityAr: string;
+  cityEn: string;
+  image: string;
+  sellerPhone: string;
+}
+
+interface Props {
+  categoryLabel?: string;
+  categoryKey?: string;
+  ads?: AdItem[];
+  lang?: string;
+}
+
+const { categoryLabel = '', categoryKey = '', ads = [], lang = 'en' } = Astro.props as Props;
+const t = useTranslations(lang);
+---
+
+{ads.length > 0 && (
+  <section class="py-12">
+    <div class="container mx-auto px-4">
+      <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 class="text-3xl font-bold">
+            {lang === 'ar'
+              ? `${categoryLabel} - ${t['home.topCategory.title_ar']}`
+              : `${t['home.topCategory.title']} ${categoryLabel}`}
+          </h2>
+         
+        </div>
+        <a href={`/${lang}/ads?category=${encodeURIComponent(categoryKey || '')}`} class="text-sm font-semibold text-primary hover:underline">
+          {t['home.topCategory.view_all']}
+        </a>
+      </div>
+
+      <div class="flex snap-x snap-mandatory gap-4 overflow-x-auto pt-2 pb-2 px-1">
+        {ads.map((ad) => (
+          <div class="min-w-[320px] max-w-[340px] snap-start">
+            <AdCard
+              title={ad.title}
+              price={ad.price}
+              currency={ad.currency}
+              category={lang === 'ar' ? ad.categoryAr : ad.categoryEn}
+              city={lang === 'ar' ? ad.cityAr : ad.cityEn}
+              image={ad.image}
+              sellerPhone={ad.sellerPhone}
+              slug={`/${lang}/ads/${ad.id}`}
+              lang={lang}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+)}

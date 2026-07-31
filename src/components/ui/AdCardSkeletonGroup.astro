@@ -1,0 +1,17 @@
+---
+import AdCardSkeleton from './AdCardSkeleton.astro';
+
+interface Props {
+  count?: number;
+  gridClass?: string;
+}
+
+const { count = 4, gridClass = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" } = Astro.props;
+const items = Array.from({ length: count });
+---
+
+<div class={gridClass}>
+  {items.map(() => (
+    <AdCardSkeleton />
+  ))}
+</div>

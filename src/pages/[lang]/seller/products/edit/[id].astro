@@ -1,0 +1,1424 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import Button from "~/components/ui/Button.astro";
+import { getMeamartSession } from "~/utils/session";
+import { defaultLang } from "~/i18n/ui";
+import { isRtl, useTranslations } from "~/i18n/utils";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Save,
+  Image as ImageIcon,
+  Barcode,
+  HelpCircle,
+  Layers,
+} from "lucide-react";
+
+export const prerender = false;
+
+const { lang = defaultLang, id } = Astro.params;
+const rtl = isRtl(lang);
+const t = useTranslations(lang);
+
+let session = Astro.locals.userSession || (await getMeamartSession(Astro));
+
+if (!session) {
+  return Astro.redirect(`/${lang}/login`);
+}
+
+// Fetch categories for select input
+let categories: any[] = [];
+try {
+  categories = [];
+} catch (e) {
+  console.error("Failed to fetch categories:", e);
+}
+
+// Fetch the WooCommerce product details
+const WP_API_URL =
+  process.env.WP_API_URL || "https://wp.meamart.com/wp-json/wp/v2";
+const WC_API_URL = WP_API_URL.replace("/wp/v2", "/wc/v3");
+
+let product: any = null;
+let variations: any[] = [];
+try {
+  const res = await fetch(`${WC_API_URL}/products/${id}`);
+  if (res.ok) {
+    product = await res.json();
+    if (product.type === "variable") {
+      variations = [];
+    }
+  }
+} catch (e) {
+  console.error("Failed to fetch WooCommerce product to edit:", e);
+}
+
+if (!product) {
+  return Astro.redirect(`/${lang}/seller/products`);
+}
+
+// Ownership check: product meta_data contains owner id
+const sellerMeta = product.meta_data?.find(
+  (m: any) => m.key === "_meamart_seller_id",
+);
+const sellerId = sellerMeta ? Number(sellerMeta.value) : 0;
+const userId = session.wp_user_id ? Number(session.wp_user_id) : -1;
+
+if (sellerId !== userId && !session.is_admin) {
+  return Astro.redirect(`/${lang}/seller/products`);
+}
+
+// Extract meta values
+const brand =
+  product.meta_data?.find((m: any) => m.key === "_brand")?.value || "";
+const brandImage =
+  product.meta_data?.find((m: any) => m.key === "_brand_image")?.value || "";
+const supplier =
+  product.meta_data?.find((m: any) => m.key === "_supplier")?.value || "";
+const supplierImage =
+  product.meta_data?.find((m: any) => m.key === "_supplier_image")?.value || "";
+const gtin =
+  product.meta_data?.find((m: any) => m.key === "_gtin")?.value || "";
+const mpn = product.meta_data?.find((m: any) => m.key === "_mpn")?.value || "";
+const condition =
+  product.meta_data?.find((m: any) => m.key === "_condition")?.value || "new";
+
+// Determine product type
+const productType =
+  product.type === "variable"
+    ? "variable"
+    : product.virtual
+      ? "virtual"
+      : "simple";
+
+// Categories matching
+const currentCategoryId = product.categories?.[0]?.id || "";
+---
+
+<Layout title={t["gen.isar._id_.1"]} description={t["gen.isar._id_.2"]}>
+  <PageHeader title={t["gen.isar._id_.3"]} description={t["gen.isar._id_.4"]} />
+
+  <Container class="pb-24 max-w-7xl">
+    <!-- Navigation Back -->
+    <div class="mb-6">
+      <a
+        href={`/${lang}/seller/products`}
+        class="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white/80 py-2.5 px-5 text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition-all dark:border-zinc-800 dark:bg-zinc-950/80 dark:text-zinc-300 dark:hover:bg-zinc-800"
+      >
+        {rtl ? <ArrowRight class="h-4 w-4" /> : <ArrowLeft class="h-4 w-4" />}
+        <span>{t["gen.isar._id_.5"]}</span>
+      </a>
+    </div>
+
+    <div
+      id="form-status"
+      class="hidden p-4 mb-6 rounded-full text-sm font-semibold"
+    >
+    </div>
+
+    <form id="edit-product-form" class="space-y-8">
+      <input type="hidden" name="productId" value={id} />
+
+      <!-- Group 1: الأساسيات (Basic Details) -->
+      <div
+        class="rounded-3xl border border-zinc-200/50 bg-white/60 p-6 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-6"
+      >
+        <h2
+          class="text-lg font-bold text-zinc-900 dark:text-zinc-50 border-b border-zinc-100 pb-3 dark:border-zinc-800"
+        >
+          {t["gen.isar._id_.6"]}
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Product Type Selection (Read-only or toggle) -->
+          <div class="md:col-span-2">
+            <label class="form-label">
+              {t["gen.isar._id_.7"]}
+            </label>
+            <select
+              name="type"
+              id="product-type-select"
+              required
+              class="form-select"
+            >
+              <option value="simple" selected={productType === "simple"}
+                >{t["gen.isar._id_.8"]}</option
+              >
+              <option value="variable" selected={productType === "variable"}
+                >{t["gen.isar._id_.9"]}</option
+              >
+              <option value="virtual" selected={productType === "virtual"}
+                >{t["gen.isar._id_.10"]}</option
+              >
+            </select>
+          </div>
+
+          <!-- Name -->
+          <div class="md:col-span-2">
+            <label class="form-label">
+              {t["gen.isar._id_.11"]}
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={product.name}
+              required
+              placeholder={t["gen.isar._id_.12"]}
+              class="form-input"
+            />
+          </div>
+
+          <!-- SKU -->
+          <div>
+            <label class="form-label">
+              {t["gen.isar._id_.13"]}
+            </label>
+            <input
+              type="text"
+              name="sku"
+              value={product.sku}
+              required
+              placeholder="IPHONE15PM-256"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Category -->
+          <div>
+            <label class="form-label">
+              {t["gen.isar._id_.14"]}
+            </label>
+            <select name="category" required class="form-select">
+              <option value="">{t["gen.isar._id_.15"]}</option>
+              {
+                categories.map((c) => (
+                  <option
+                    value={c.id}
+                    selected={Number(c.id) === Number(currentCategoryId)}
+                  >
+                    {c.name}
+                  </option>
+                ))
+              }
+            </select>
+          </div>
+
+          <!-- Regular Price -->
+          <div
+            id="regular-price-container"
+            class={productType === "variable" ? "hidden" : ""}
+          >
+            <label class="form-label">
+              {t["gen.isar._id_.16"]}
+            </label>
+            <input
+              type="number"
+              name="regular_price"
+              value={product.regular_price}
+              required={productType !== "variable"}
+              min="0"
+              step="0.01"
+              placeholder="4300"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Sale Price -->
+          <div
+            id="sale-price-container"
+            class={productType === "variable" ? "hidden" : ""}
+          >
+            <label class="form-label">
+              {t["gen.isar._id_.17"]}
+            </label>
+            <input
+              type="number"
+              name="sale_price"
+              value={product.sale_price || ""}
+              min="0"
+              step="0.01"
+              placeholder="3999"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Short Description -->
+          <div class="md:col-span-2">
+            <label class="form-label">
+              {t["gen.isar._id_.18"]}
+            </label>
+            <input
+              type="text"
+              name="short_description"
+              value={product.short_description?.replace(
+                /<\/?[^>]+(>|$)/g,
+                "",
+              ) || ""}
+              required
+              placeholder={t["gen.isar._id_.19"]}
+              class="form-input"
+            />
+          </div>
+
+          <!-- Detailed Description -->
+          <div class="md:col-span-2">
+            <label class="form-label">
+              {t["gen.isar._id_.20"]}
+            </label>
+            <textarea
+              name="description"
+              rows="5"
+              placeholder={t["gen.isar._id_.21"]}
+              class="w-full rounded-2x1 border border-zinc-200 bg-white/80 py-3 px-4 text-sm outline-hidden focus:border-primary focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-950/80 dark:focus:border-zinc-650 dark:text-zinc-50"
+              >{
+                product.description?.replace(/<\/?[^>]+(>|$)/g, "") || ""
+              }</textarea
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- Group 2: سكيما البيانات المعتمدة وقوقل (GS1 & Google Merchant Schema) -->
+      <div
+        class="rounded-3xl border border-zinc-200/50 bg-white/60 p-6 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-6"
+      >
+        <h2
+          class="text-lg font-bold text-zinc-900 dark:text-zinc-50 border-b border-zinc-100 pb-3 dark:border-zinc-800 flex items-center gap-2"
+        >
+          <Barcode class="h-5 w-5 text-primary animate-pulse" />
+          <span>{t["gen.isar._id_.22"]}</span>
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- GTIN / EAN / Barcode -->
+          <div>
+            <label
+              class="flex items-center gap-1.5 text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-2"
+            >
+              <span>{t["gen.isar._id_.23"]}</span>
+              <span
+                class="cursor-help text-zinc-400"
+                title={t["gen.isar._id_.24"]}
+                ><HelpCircle class="h-3.5 w-3.5" /></span
+              >
+            </label>
+            <input
+              type="text"
+              name="gtin"
+              value={gtin}
+              required
+              placeholder="6281000000000"
+              pattern="^[0-9]{8,14}$"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Brand & Logo Image -->
+          <div class="space-y-4">
+            <div>
+              <label class="form-label">
+                {t["gen.isar._id_.25"]}
+              </label>
+              <input
+                type="text"
+                name="brand"
+                value={brand}
+                required
+                placeholder={t["gen.isar._id_.26"]}
+                class="form-input"
+              />
+            </div>
+            <div>
+              <label class="form-label">
+                {t["gen.isar._id_.27"]}
+              </label>
+              <div
+                class="relative w-full rounded-full border-2 border-dashed border-zinc-300 bg-white/40 p-4 text-center dark:border-zinc-700 dark:bg-zinc-900/40 hover:border-primary transition-all"
+              >
+                <input
+                  type="file"
+                  id="brand-image-input"
+                  accept="image/*"
+                  class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+                <div
+                  id="brand-image-placeholder"
+                  class={brandImage
+                    ? "hidden"
+                    : "text-xs text-zinc-450 dark:text-zinc-500 flex flex-col items-center gap-1"}
+                >
+                  <span class="font-bold text-zinc-700 dark:text-zinc-300"
+                    >{t["gen.isar._id_.28"]}</span
+                  >
+                </div>
+                <img
+                  id="brand-image-preview"
+                  src={brandImage}
+                  class={brandImage
+                    ? "mx-auto h-16 w-16 object-contain rounded-xl border border-zinc-200 dark:border-zinc-800"
+                    : "hidden mx-auto h-16 w-16 object-contain rounded-xl border border-zinc-200 dark:border-zinc-800"}
+                  data-existing={brandImage}
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Supplier & Logo Image -->
+          <div class="space-y-4">
+            <div>
+              <label class="form-label">
+                {t["gen.isar._id_.29"]}
+              </label>
+              <input
+                type="text"
+                name="supplier"
+                value={supplier}
+                required
+                placeholder={t["gen.isar._id_.30"]}
+                class="form-input"
+              />
+            </div>
+            <div>
+              <label class="form-label">
+                {t["gen.isar._id_.31"]}
+              </label>
+              <div
+                class="relative w-full rounded-full border-2 border-dashed border-zinc-300 bg-white/40 p-4 text-center dark:border-zinc-700 dark:bg-zinc-900/40 hover:border-primary transition-all"
+              >
+                <input
+                  type="file"
+                  id="supplier-image-input"
+                  accept="image/*"
+                  class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+                <div
+                  id="supplier-image-placeholder"
+                  class={supplierImage
+                    ? "hidden"
+                    : "text-xs text-zinc-450 dark:text-zinc-500 flex flex-col items-center gap-1"}
+                >
+                  <span class="font-bold text-zinc-700 dark:text-zinc-300"
+                    >{t["gen.isar._id_.32"]}</span
+                  >
+                </div>
+                <img
+                  id="supplier-image-preview"
+                  src={supplierImage}
+                  class={supplierImage
+                    ? "mx-auto h-16 w-16 object-contain rounded-xl border border-zinc-200 dark:border-zinc-800"
+                    : "hidden mx-auto h-16 w-16 object-contain rounded-xl border border-zinc-200 dark:border-zinc-800"}
+                  data-existing={supplierImage}
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- MPN -->
+          <div>
+            <label class="form-label">
+              {t["gen.isar._id_.33"]}
+            </label>
+            <input
+              type="text"
+              name="mpn"
+              value={mpn}
+              placeholder="MU663ZA/A"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Condition -->
+          <div>
+            <label class="form-label">
+              {t["gen.isar._id_.34"]}
+            </label>
+            <select name="condition" required class="form-select">
+              <option value="new" selected={condition === "new"}
+                >{t["gen.isar._id_.35"]}</option
+              >
+              <option value="used" selected={condition === "used"}
+                >{t["gen.isar._id_.36"]}</option
+              >
+              <option value="refurbished" selected={condition === "refurbished"}
+                >{t["gen.isar._id_.37"]}</option
+              >
+            </select>
+          </div>
+
+          <!-- Stock Status -->
+          <div>
+            <label class="form-label">
+              {t["gen.isar._id_.38"]}
+            </label>
+            <select name="stock_status" required class="form-select">
+              <option
+                value="instock"
+                selected={product.stock_status === "instock"}
+                >{t["gen.isar._id_.39"]}</option
+              >
+              <option
+                value="outofstock"
+                selected={product.stock_status === "outofstock"}
+                >{t["gen.isar._id_.40"]}</option
+              >
+            </select>
+          </div>
+
+          <!-- Stock Quantity Management -->
+          <div class="flex items-center h-12 pt-5">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                id="manage-stock-checkbox"
+                name="manage_stock"
+                checked={product.manage_stock}
+                class="rounded border-zinc-300 text-primary focus:ring-primary dark:border-zinc-700"
+              />
+              <span class="text-xs font-bold text-zinc-600 dark:text-zinc-400">
+                {t["gen.isar._id_.41"]}
+              </span>
+            </label>
+          </div>
+
+          <!-- Quantity Input (hidden until checkbox checked) -->
+          <div
+            id="stock-qty-container"
+            class={product.manage_stock
+              ? "md:col-span-2"
+              : "hidden md:col-span-2"}
+          >
+            <label class="form-label">
+              {t["gen.isar._id_.42"]}
+            </label>
+            <input
+              type="number"
+              name="stock_quantity"
+              value={product.stock_quantity || ""}
+              min="1"
+              placeholder="10"
+              class="form-input"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Group 3: أوزان وأبعاد الشحن (Shipping Details) -->
+      <div
+        id="shipping-details-group"
+        class={productType === "virtual"
+          ? "hidden rounded-3xl border border-zinc-200/50 bg-white/60 p-6 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-6"
+          : "rounded-3xl border border-zinc-200/50 bg-white/60 p-6 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-6"}
+      >
+        <h2
+          class="text-lg font-bold text-zinc-900 dark:text-zinc-50 border-b border-zinc-100 pb-3 dark:border-zinc-800"
+        >
+          {t["gen.isar._id_.43"]}
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <!-- Weight -->
+          <div class="md:col-span-1">
+            <label class="form-label">
+              {t["gen.isar._id_.44"]}
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              name="weight"
+              value={product.weight || ""}
+              min="0"
+              placeholder="0.25"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Length -->
+          <div>
+            <label class="form-label">
+              {t["gen.isar._id_.45"]}
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              name="length"
+              value={product.dimensions?.length || ""}
+              min="0"
+              placeholder="15"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Width -->
+          <div>
+            <label class="form-label">
+              {t["gen.isar._id_.46"]}
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              name="width"
+              value={product.dimensions?.width || ""}
+              min="0"
+              placeholder="7"
+              class="form-input"
+            />
+          </div>
+
+          <!-- Height -->
+          <div>
+            <label class="form-label">
+              {t["gen.isar._id_.47"]}
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              name="height"
+              value={product.dimensions?.height || ""}
+              min="0"
+              placeholder="1"
+              class="form-input"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Group 3.5: Attributes and Variations (Only visible for variable products) -->
+      <div
+        id="variations-group"
+        class={productType === "variable"
+          ? "rounded-3xl border border-zinc-200/50 bg-white/60 p-6 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-6"
+          : "hidden rounded-3xl border border-zinc-200/50 bg-white/60 p-6 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-6"}
+      >
+        <h2
+          class="text-lg font-bold text-zinc-900 dark:text-zinc-50 border-b border-zinc-100 pb-3 dark:border-zinc-800 flex items-center gap-2"
+        >
+          <Layers class="h-5 w-5 text-primary" />
+          <span>{t["gen.isar._id_.48"]}</span>
+        </h2>
+
+        <div class="space-y-4">
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">
+            {t["gen.isar._id_.49"]}
+          </p>
+
+          <div id="attributes-list" class="space-y-4">
+            {
+              product.attributes?.map((attr: any) => (
+                <div class="attribute-row grid grid-cols-12 gap-3 items-end bg-zinc-50/50 dark:bg-zinc-950/50 p-4 rounded-full border border-zinc-200/50 dark:border-zinc-800/50 relative">
+                  <div class="col-span-4">
+                    <label class="block text-[10px] font-bold text-zinc-500 mb-1">
+                      {t["gen.isar._id_.50"]}
+                    </label>
+                    <input
+                      type="text"
+                      class="attr-name w-full rounded-xl border border-zinc-200 bg-white py-2 px-3 text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+                      value={attr.name}
+                      required
+                    />
+                  </div>
+                  <div class="col-span-7">
+                    <label class="block text-[10px] font-bold text-zinc-500 mb-1">
+                      {t["gen.isar._id_.51"]}
+                    </label>
+                    <input
+                      type="text"
+                      class="attr-options w-full rounded-xl border border-zinc-200 bg-white py-2 px-3 text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+                      value={attr.options?.join(", ")}
+                      required
+                    />
+                  </div>
+                  <div class="col-span-1 text-center">
+                    <button
+                      type="button"
+                      class="remove-attr-btn text-red-500 hover:text-red-700 font-bold text-lg"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+
+          <button
+            type="button"
+            id="add-attribute-btn"
+            class="inline-flex items-center gap-1.5 rounded-xl border border-primary text-primary px-4 py-2 text-xs font-bold hover:bg-primary/5 transition-all"
+          >
+            + {t["gen.isar._id_.52"]}
+          </button>
+        </div>
+
+        <div
+          id="generate-variations-container"
+          class={product.attributes?.length > 0
+            ? "pt-4 border-t border-zinc-150 dark:border-zinc-700"
+            : "hidden pt-4 border-t border-zinc-150 dark:border-zinc-700"}
+        >
+          <button
+            type="button"
+            id="generate-variations-btn"
+            class="w-full rounded-full bg-zinc-900 py-3 text-xs font-extrabold text-white hover:bg-zinc-800 transition-all dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+          >
+            {t["gen.isar._id_.53"]}
+          </button>
+        </div>
+
+        <div
+          id="variations-list-container"
+          class={variations.length > 0
+            ? "space-y-4 pt-6 border-t border-zinc-150 dark:border-zinc-700"
+            : "hidden space-y-4 pt-6 border-t border-zinc-150 dark:border-zinc-700"}
+        >
+          <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-200">
+            {t["gen.isar._id_.54"]}
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-start text-xs border-collapse">
+              <thead>
+                <tr
+                  class="border-b border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-405 font-bold"
+                >
+                  <th class="py-2.5 px-3 text-start">{t["gen.isar._id_.55"]}</th
+                  >
+                  <th class="py-2.5 px-3 text-start">{t["gen.isar._id_.56"]}</th
+                  >
+                  <th class="py-2.5 px-3 text-start">{t["gen.isar._id_.57"]}</th
+                  >
+                  <th class="py-2.5 px-3 text-start">{t["gen.isar._id_.58"]}</th
+                  >
+                  <th class="py-2.5 px-3 text-start">{t["gen.isar._id_.59"]}</th
+                  >
+                </tr>
+              </thead>
+              <tbody
+                id="variations-table-body"
+                class="divide-y divide-zinc-100 dark:divide-zinc-850"
+              >
+                {
+                  variations.map((v: any) => {
+                    const comboLabel = v.attributes
+                      ?.map(
+                        (attr: any) =>
+                          `${attr.name}: ${attr.option || attr.value}`,
+                      )
+                      .join(", ");
+                    const skuSuffix = v.sku
+                      ? String(v.sku).replace(`${product.sku}-`, "")
+                      : "";
+                    return (
+                      <tr
+                        class="border-b border-zinc-100 dark:border-zinc-700 hover:bg-zinc-50/40 dark:hover:bg-zinc-950/20"
+                        data-attrs={JSON.stringify(v.attributes)}
+                      >
+                        <td class="py-3 px-3 font-semibold text-zinc-700 dark:text-zinc-300">
+                          {comboLabel}
+                        </td>
+                        <td class="py-3 px-3">
+                          <input
+                            type="number"
+                            step="0.01"
+                            required
+                            min="0"
+                            class="var-price w-24 rounded-lg border border-zinc-200 bg-white py-1.5 px-2 text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+                            value={v.regular_price}
+                            placeholder="100"
+                          />
+                        </td>
+                        <td class="py-3 px-3">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            class="var-sale-price w-24 rounded-lg border border-zinc-200 bg-white py-1.5 px-2 text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+                            value={v.sale_price || ""}
+                            placeholder="80"
+                          />
+                        </td>
+                        <td class="py-3 px-3">
+                          <input
+                            type="text"
+                            class="var-sku w-28 rounded-lg border border-zinc-200 bg-white py-1.5 px-2 text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+                            value={skuSuffix}
+                            placeholder="SKU-suffix"
+                          />
+                        </td>
+                        <td class="py-3 px-3">
+                          <select class="var-stock rounded-lg border border-zinc-200 bg-white py-1.5 px-2 text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50">
+                            <option
+                              value="instock"
+                              selected={v.stock_status === "instock"}
+                            >
+                              {t["gen.isar._id_.60"]}
+                            </option>
+                            <option
+                              value="outofstock"
+                              selected={v.stock_status === "outofstock"}
+                            >
+                              {t["gen.isar._id_.61"]}
+                            </option>
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group 4: صور المنتج (Product Gallery) -->
+      <div
+        class="rounded-3xl border border-zinc-200/50 bg-white/60 p-6 sm:p-8 shadow-lg backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 space-y-6"
+      >
+        <h2
+          class="text-lg font-bold text-zinc-900 dark:text-zinc-50 border-b border-zinc-100 pb-3 dark:border-zinc-800"
+        >
+          {t["gen.isar._id_.62"]}
+        </h2>
+
+        <!-- Current Images list -->
+        <div class="grid grid-cols-4 gap-4" id="current-images-container">
+          {
+            product.images?.map((img: any) => (
+              <div
+                class="relative group rounded-2x1 overflow-hidden aspect-square bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/30"
+                data-src={img.src}
+              >
+                <img
+                  src={img.src}
+                  alt={product.name}
+                  class="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  class="remove-existing-img-btn absolute top-1 end-1 w-5 h-5 rounded-full bg-red-500/90 text-white flex items-center justify-center text-xs font-bold"
+                >
+                  &times;
+                </button>
+              </div>
+            ))
+          }
+        </div>
+
+        <!-- Drop Zone -->
+        <div
+          id="image-drop-zone"
+          class="relative w-full rounded-3xl border-2 border-dashed border-zinc-300 bg-white/40 dark:border-zinc-700 dark:bg-zinc-900/40 transition-all duration-200 cursor-pointer hover:border-primary hover:bg-primary/5 dark:hover:border-primary dark:hover:bg-primary/5 mt-4"
+          style="min-height: 180px;"
+        >
+          <!-- Hidden real file input -->
+          <input
+            type="file"
+            id="product-image-input"
+            accept="image/*"
+            multiple
+            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          />
+
+          <!-- Default placeholder -->
+          <div
+            id="drop-placeholder"
+            class="flex flex-col items-center justify-center gap-3 py-10 px-6 text-center pointer-events-none"
+          >
+            <div
+              class="w-14 h-14 rounded-2x1 bg-primary/10 dark:bg-primary/20 flex items-center justify-center"
+            >
+              <ImageIcon class="w-7 h-7 text-primary" />
+            </div>
+            <div>
+              <p class="text-sm font-bold text-zinc-700 dark:text-zinc-200">
+                {t["gen.isar._id_.63"]}
+              </p>
+            </div>
+          </div>
+
+          <!-- Previews grid -->
+          <div
+            id="image-previews"
+            class="hidden p-4 grid grid-cols-3 sm:grid-cols-4 gap-3"
+          >
+          </div>
+        </div>
+
+        <button
+          type="button"
+          id="add-more-photos-btn"
+          class="hidden w-full rounded-full border border-dashed border-zinc-300 dark:border-zinc-700 py-2.5 text-xs font-bold text-zinc-500 dark:text-zinc-400 hover:border-primary hover:text-primary transition-all"
+        >
+          {t["gen.isar._id_.64"]}
+        </button>
+      </div>
+
+      <!-- Submit Button -->
+      <button
+        type="submit"
+        id="submit-btn"
+        class="w-full rounded-full bg-primary py-4 text-sm font-bold text-white shadow-lg transition-all hover:bg-primary/90 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+      >
+        <Save class="h-4 w-4 inline-block me-1.5 align-middle" />
+        <span class="align-middle">{t["gen.isar._id_.65"]}</span>
+      </button>
+    </form>
+  </Container>
+</Layout>
+
+<script>
+  const form = document.getElementById("edit-product-form") as HTMLFormElement;
+  const statusDiv = document.getElementById("form-status") as HTMLDivElement;
+  const submitBtn = document.getElementById("submit-btn") as HTMLButtonElement;
+
+  // Manage stock quantity toggle
+  const manageStockCheckbox = document.getElementById(
+    "manage-stock-checkbox",
+  ) as HTMLInputElement;
+  const stockQtyContainer = document.getElementById(
+    "stock-qty-container",
+  ) as HTMLDivElement;
+  const stockQtyInput = form.querySelector(
+    '[name="stock_quantity"]',
+  ) as HTMLInputElement;
+
+  manageStockCheckbox?.addEventListener("change", () => {
+    if (manageStockCheckbox.checked) {
+      stockQtyContainer.classList.remove("hidden");
+      stockQtyInput.required = true;
+    } else {
+      stockQtyContainer.classList.add("hidden");
+      stockQtyInput.required = false;
+      stockQtyInput.value = "";
+    }
+  });
+
+  // Brand and Supplier logo upload preview handlers
+  const brandImageInput = document.getElementById(
+    "brand-image-input",
+  ) as HTMLInputElement;
+  const brandImagePreview = document.getElementById(
+    "brand-image-preview",
+  ) as HTMLImageElement;
+  const brandImagePlaceholder = document.getElementById(
+    "brand-image-placeholder",
+  ) as HTMLElement;
+
+  brandImageInput?.addEventListener("change", () => {
+    const file = brandImageInput.files?.[0];
+    if (file) {
+      brandImagePreview.src = URL.createObjectURL(file);
+      brandImagePreview.classList.remove("hidden");
+      brandImagePlaceholder.classList.add("hidden");
+    }
+  });
+
+  const supplierImageInput = document.getElementById(
+    "supplier-image-input",
+  ) as HTMLInputElement;
+  const supplierImagePreview = document.getElementById(
+    "supplier-image-preview",
+  ) as HTMLImageElement;
+  const supplierImagePlaceholder = document.getElementById(
+    "supplier-image-placeholder",
+  ) as HTMLElement;
+
+  supplierImageInput?.addEventListener("change", () => {
+    const file = supplierImageInput.files?.[0];
+    if (file) {
+      supplierImagePreview.src = URL.createObjectURL(file);
+      supplierImagePreview.classList.remove("hidden");
+      supplierImagePlaceholder.classList.add("hidden");
+    }
+  });
+
+  // Product Type selection toggle logic
+  const typeSelect = document.getElementById(
+    "product-type-select",
+  ) as HTMLSelectElement;
+  const variationsGroup = document.getElementById(
+    "variations-group",
+  ) as HTMLElement;
+  const shippingGroup = document.getElementById(
+    "shipping-details-group",
+  ) as HTMLElement;
+  const regularPriceContainer = document.getElementById(
+    "regular-price-container",
+  ) as HTMLElement;
+  const salePriceContainer = document.getElementById(
+    "sale-price-container",
+  ) as HTMLElement;
+  const regularPriceInput = form.querySelector(
+    '[name="regular_price"]',
+  ) as HTMLInputElement;
+
+  typeSelect?.addEventListener("change", () => {
+    const val = typeSelect.value;
+    if (val === "variable") {
+      variationsGroup.classList.remove("hidden");
+      regularPriceContainer.classList.add("hidden");
+      salePriceContainer.classList.add("hidden");
+      regularPriceInput.required = false;
+      shippingGroup.classList.remove("hidden");
+    } else if (val === "virtual") {
+      variationsGroup.classList.add("hidden");
+      regularPriceContainer.classList.remove("hidden");
+      salePriceContainer.classList.remove("hidden");
+      regularPriceInput.required = true;
+      shippingGroup.classList.add("hidden");
+    } else {
+      variationsGroup.classList.add("hidden");
+      regularPriceContainer.classList.remove("hidden");
+      salePriceContainer.classList.remove("hidden");
+      regularPriceInput.required = true;
+      shippingGroup.classList.remove("hidden");
+    }
+  });
+
+  // Dynamic Attributes & Variations builder logic
+  const attributesList = document.getElementById(
+    "attributes-list",
+  ) as HTMLElement;
+  const addAttributeBtn = document.getElementById(
+    "add-attribute-btn",
+  ) as HTMLButtonElement;
+  const generateVariationsContainer = document.getElementById(
+    "generate-variations-container",
+  ) as HTMLElement;
+  const generateVariationsBtn = document.getElementById(
+    "generate-variations-btn",
+  ) as HTMLButtonElement;
+  const variationsListContainer = document.getElementById(
+    "variations-list-container",
+  ) as HTMLElement;
+  const variationsTableBody = document.getElementById(
+    "variations-table-body",
+  ) as HTMLElement;
+
+  // Re-bind existing remove buttons
+  attributesList.querySelectorAll(".remove-attr-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      (e.currentTarget as HTMLElement).closest(".attribute-row")?.remove();
+      if (attributesList.children.length === 0) {
+        generateVariationsContainer.classList.add("hidden");
+        variationsListContainer.classList.add("hidden");
+      }
+    });
+  });
+
+  addAttributeBtn?.addEventListener("click", () => {
+    const row = document.createElement("div");
+    row.className =
+      "attribute-row grid grid-cols-12 gap-3 items-end bg-zinc-50/50 dark:bg-zinc-950/50 p-4 rounded-full border border-zinc-200/50 dark:border-zinc-800/50 relative";
+    row.innerHTML = `
+      <div class="col-span-4">
+        <label class="block text-[10px] font-bold text-zinc-500 mb-1">${t["gen.isar._id_.66"]}</label>
+        <input type="text" class="attr-name w-full rounded-xl border border-zinc-200 bg-white py-2 px-3 text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50" placeholder="${t["gen.isar._id_.67"]}" required />
+      </div>
+      <div class="col-span-7">
+        <label class="block text-[10px] font-bold text-zinc-500 mb-1">${t["gen.isar._id_.68"]}</label>
+        <input type="text" class="attr-options w-full rounded-xl border border-zinc-200 bg-white py-2 px-3 text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50" placeholder="${t["gen.isar._id_.69"]}" required />
+      </div>
+      <div class="col-span-1 text-center">
+        <button type="button" class="remove-attr-btn text-red-500 hover:text-red-700 font-bold text-lg">&times;</button>
+      </div>
+    `;
+    attributesList.appendChild(row);
+    generateVariationsContainer.classList.remove("hidden");
+
+    row.querySelector(".remove-attr-btn")?.addEventListener("click", () => {
+      row.remove();
+      if (attributesList.children.length === 0) {
+        generateVariationsContainer.classList.add("hidden");
+        variationsListContainer.classList.add("hidden");
+      }
+    });
+  });
+
+  function cartesianProduct(arrays: any[][]): any[][] {
+    return arrays.reduce(
+      (a, b) => {
+        return a.flatMap((d) => b.map((e) => [d, e].flat()));
+      },
+      [[]],
+    );
+  }
+
+  generateVariationsBtn?.addEventListener("click", () => {
+    const attrRows = attributesList.querySelectorAll(".attribute-row");
+    const attributes: { name: string; options: string[] }[] = [];
+
+    attrRows.forEach((row) => {
+      const nameInput = row.querySelector(".attr-name") as HTMLInputElement;
+      const optionsInput = row.querySelector(
+        ".attr-options",
+      ) as HTMLInputElement;
+      if (nameInput.value.trim() && optionsInput.value.trim()) {
+        const options = optionsInput.value
+          .split(",")
+          .map((o) => o.trim())
+          .filter(Boolean);
+        attributes.push({ name: nameInput.value.trim(), options });
+      }
+    });
+
+    if (attributes.length === 0) return;
+
+    // Generate Cartesian combinations
+    const optionArrays = attributes.map((a) => a.options);
+    const combinations = cartesianProduct(optionArrays);
+
+    variationsTableBody.innerHTML = "";
+
+    combinations.forEach((combo, comboIdx) => {
+      const comboLabel = combo
+        .map((val, idx) => `${attributes[idx].name}: ${val}`)
+        .join(", ");
+      const attrMapping = combo.map((val, idx) => ({
+        name: attributes[idx].name,
+        option: val,
+      }));
+
+      const tr = document.createElement("tr");
+      tr.className =
+        "border-b border-zinc-100 dark:border-zinc-700 hover:bg-zinc-50/40 dark:hover:bg-zinc-950/20";
+      tr.dataset.attrs = JSON.stringify(attrMapping);
+      tr.innerHTML = `
+        <td class="py-3 px-3 font-semibold text-zinc-700 dark:text-zinc-300">${comboLabel}</td>
+        <td class="py-3 px-3">
+          <input type="number" step="0.01" required min="0" class="var-price w-24 rounded-lg border border-zinc-200 bg-white py-1.5 px-2 text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50" placeholder="100" />
+        </td>
+        <td class="py-3 px-3">
+          <input type="number" step="0.01" min="0" class="var-sale-price w-24 rounded-lg border border-zinc-200 bg-white py-1.5 px-2 text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50" placeholder="80" />
+        </td>
+        <td class="py-3 px-3">
+          <input type="text" class="var-sku w-28 rounded-lg border border-zinc-200 bg-white py-1.5 px-2 text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50" placeholder="SKU-suffix" />
+        </td>
+        <td class="py-3 px-3">
+          <select class="var-stock rounded-lg border border-zinc-200 bg-white py-1.5 px-2 text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50">
+            <option value="instock" selected>${t["gen.isar._id_.70"]}</option>
+            <option value="outofstock">${t["gen.isar._id_.71"]}</option>
+          </select>
+        </td>
+      `;
+      variationsTableBody.appendChild(tr);
+    });
+
+    variationsListContainer.classList.remove("hidden");
+  });
+
+  // Handle deletion of existing images in DOM
+  const currentImagesContainer = document.getElementById(
+    "current-images-container",
+  );
+  currentImagesContainer?.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest(".remove-existing-img-btn");
+    if (btn) {
+      btn.closest("[data-src]")?.remove();
+    }
+  });
+
+  // Multiple Image Dropzone Management
+  let selectedFiles: File[] = [];
+  const dropZone = document.getElementById("image-drop-zone") as HTMLElement;
+  const imageInput = document.getElementById(
+    "product-image-input",
+  ) as HTMLInputElement;
+  const placeholder = document.getElementById(
+    "drop-placeholder",
+  ) as HTMLElement;
+  const previewGrid = document.getElementById("image-previews") as HTMLElement;
+  const addMoreBtn = document.getElementById(
+    "add-more-photos-btn",
+  ) as HTMLButtonElement;
+
+  function renderPreviews() {
+    if (selectedFiles.length === 0) {
+      placeholder.classList.remove("hidden");
+      previewGrid.classList.add("hidden");
+      addMoreBtn.classList.add("hidden");
+      return;
+    }
+    placeholder.classList.add("hidden");
+    previewGrid.classList.remove("hidden");
+    addMoreBtn.classList.remove("hidden");
+    previewGrid.innerHTML = "";
+
+    selectedFiles.forEach((file, idx) => {
+      const url = URL.createObjectURL(file);
+      const item = document.createElement("div");
+      item.className =
+        "relative group rounded-2x1 overflow-hidden aspect-square bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/50";
+      item.innerHTML = `
+        <img src="${url}" class="w-full h-full object-cover" />
+        <button type="button" data-idx="${idx}" class="remove-img-btn absolute top-1 end-1 w-5 h-5 rounded-full bg-red-500/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold">&times;</button>
+      `;
+      previewGrid.appendChild(item);
+    });
+
+    previewGrid.querySelectorAll(".remove-img-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const idx = Number((e.currentTarget as HTMLElement).dataset.idx);
+        selectedFiles.splice(idx, 1);
+        renderPreviews();
+      });
+    });
+  }
+
+  function addFiles(files: FileList | File[]) {
+    Array.from(files).forEach((f) => {
+      if (f.type.startsWith("image/")) selectedFiles.push(f);
+    });
+    renderPreviews();
+  }
+
+  imageInput?.addEventListener("change", () => {
+    if (imageInput.files) addFiles(imageInput.files);
+  });
+  dropZone?.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropZone.classList.add("border-primary");
+  });
+  dropZone?.addEventListener("dragleave", () => {
+    dropZone.classList.remove("border-primary");
+  });
+  dropZone?.addEventListener("drop", (e: DragEvent) => {
+    e.preventDefault();
+    dropZone.classList.remove("border-primary");
+    if (e.dataTransfer?.files) addFiles(e.dataTransfer.files);
+  });
+
+  addMoreBtn?.addEventListener("click", () => imageInput?.click());
+
+  // Helper to read file as base64 object
+  const readFileAsBase64 = (file: File) =>
+    new Promise<{ name: string; type: string; base64: string }>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve({
+          name: file.name,
+          type: file.type,
+          base64: (reader.result as string).split(",")[1],
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+
+  // Form submit handler
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    submitBtn.disabled = true;
+    submitBtn.textContent = t["gen.isar._id_.72"];
+
+    const formData = new FormData(form);
+    const productId = formData.get("productId");
+    const productType = typeSelect.value;
+
+    // Collect remaining existing image URLs
+    const remainingUrls: string[] = [];
+    currentImagesContainer?.querySelectorAll("[data-src]").forEach((el) => {
+      const src = el.getAttribute("data-src");
+      if (src) remainingUrls.push(src);
+    });
+
+    if (remainingUrls.length === 0 && selectedFiles.length === 0) {
+      statusDiv.className =
+        "p-4 mb-6 rounded-full text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+      statusDiv.textContent = t["gen.isar._id_.73"];
+      statusDiv.classList.remove("hidden");
+      submitBtn.disabled = false;
+      submitBtn.textContent = t["gen.isar._id_.74"];
+      return;
+    }
+
+    const data: Record<string, any> = {
+      productId,
+      type: productType,
+      name: formData.get("name"),
+      sku: formData.get("sku"),
+      categories: [Number(formData.get("category"))],
+      regular_price:
+        productType === "variable" ? undefined : formData.get("regular_price"),
+      sale_price:
+        productType === "variable"
+          ? undefined
+          : formData.get("sale_price") || undefined,
+      short_description: formData.get("short_description"),
+      description: formData.get("description") || "",
+      gtin: formData.get("gtin"),
+      brand: formData.get("brand"),
+      supplier: formData.get("supplier"),
+      mpn: formData.get("mpn") || undefined,
+      condition: formData.get("condition"),
+      stock_status: formData.get("stock_status"),
+      manage_stock: manageStockCheckbox.checked,
+      stock_quantity: manageStockCheckbox.checked
+        ? Number(formData.get("stock_quantity"))
+        : undefined,
+      weight:
+        productType === "virtual"
+          ? undefined
+          : formData.get("weight") || undefined,
+      dimensions:
+        productType !== "virtual" &&
+        (formData.get("length") ||
+          formData.get("width") ||
+          formData.get("height"))
+          ? {
+              length: formData.get("length") || "",
+              width: formData.get("width") || "",
+              height: formData.get("height") || "",
+            }
+          : undefined,
+    };
+
+    try {
+      statusDiv.className =
+        "p-4 mb-6 rounded-full text-sm font-semibold bg-zinc-150 text-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-350";
+      statusDiv.textContent = t["gen.isar._id_.75"];
+      statusDiv.classList.remove("hidden");
+
+      // Upload Brand Logo if changed
+      const brandFile = brandImageInput.files?.[0];
+      if (brandFile) {
+        const brandBase64 = await readFileAsBase64(brandFile);
+        const brandUploadRes = await fetch("/api/create-ad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            upload_only: true,
+            imageFile: brandBase64,
+          }),
+        });
+        const brandUploadResult = await brandUploadRes.json();
+        if (brandUploadResult.success && brandUploadResult.url) {
+          data.brand_image = brandUploadResult.url;
+        }
+      } else {
+        data.brand_image =
+          brandImagePreview.getAttribute("data-existing") || "";
+      }
+
+      // Upload Supplier Logo if changed
+      const supplierFile = supplierImageInput.files?.[0];
+      if (supplierFile) {
+        const supplierBase64 = await readFileAsBase64(supplierFile);
+        const supplierUploadRes = await fetch("/api/create-ad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            upload_only: true,
+            imageFile: supplierBase64,
+          }),
+        });
+        const supplierUploadResult = await supplierUploadRes.json();
+        if (supplierUploadResult.success && supplierUploadResult.url) {
+          data.supplier_image = supplierUploadResult.url;
+        }
+      } else {
+        data.supplier_image =
+          supplierImagePreview.getAttribute("data-existing") || "";
+      }
+
+      // Upload newly added product photos
+      let newlyUploadedUrls: string[] = [];
+      if (selectedFiles.length > 0) {
+        const uploadedProductPhotos = await Promise.all(
+          selectedFiles.map(readFileAsBase64),
+        );
+        for (const file of uploadedProductPhotos) {
+          const uploadRes = await fetch("/api/create-ad", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              upload_only: true,
+              imageFile: file,
+            }),
+          });
+          const uploadResult = await uploadRes.json();
+          if (uploadResult.success && uploadResult.url) {
+            newlyUploadedUrls.push(uploadResult.url);
+          }
+        }
+      }
+
+      data.images = [...remainingUrls, ...newlyUploadedUrls];
+
+      // If variable product, extract attributes list and variations rows
+      if (productType === "variable") {
+        const attributes: { name: string; options: string[] }[] = [];
+        const attrRows = attributesList.querySelectorAll(".attribute-row");
+        attrRows.forEach((row) => {
+          const nameInput = row.querySelector(".attr-name") as HTMLInputElement;
+          const optionsInput = row.querySelector(
+            ".attr-options",
+          ) as HTMLInputElement;
+          if (nameInput.value.trim() && optionsInput.value.trim()) {
+            const options = optionsInput.value
+              .split(",")
+              .map((o) => o.trim())
+              .filter(Boolean);
+            attributes.push({ name: nameInput.value.trim(), options });
+          }
+        });
+        data.attributes = attributes;
+
+        // Extract variations rows from table
+        const variations: any[] = [];
+        const varRows = variationsTableBody.querySelectorAll("tr");
+        varRows.forEach((row) => {
+          const priceInput = row.querySelector(
+            ".var-price",
+          ) as HTMLInputElement;
+          const saleInput = row.querySelector(
+            ".var-sale-price",
+          ) as HTMLInputElement;
+          const skuInput = row.querySelector(".var-sku") as HTMLInputElement;
+          const stockSelect = row.querySelector(
+            ".var-stock",
+          ) as HTMLSelectElement;
+          const attrs = JSON.parse(row.dataset.attrs || "[]");
+
+          variations.push({
+            regular_price: priceInput.value,
+            sale_price: saleInput.value || undefined,
+            sku: skuInput.value ? `${data.sku}-${skuInput.value}` : undefined,
+            stock_status: stockSelect.value,
+            attributes: attrs,
+          });
+        });
+        data.variations = variations;
+      }
+
+      statusDiv.textContent = t["gen.isar._id_.76"];
+
+      // Send to products edit API endpoint
+      const response = await fetch("/api/products/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        statusDiv.className =
+          "p-4 mb-6 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300";
+        statusDiv.textContent = t["gen.isar._id_.77"];
+
+        setTimeout(() => {
+          window.location.href = `/${t["gen.isar._id_.78"]}/seller/products`;
+        }, 1500);
+      } else {
+        throw new Error(result.error || "Failed to update product");
+      }
+    } catch (err: any) {
+      statusDiv.className =
+        "p-4 mb-6 rounded-full text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+      statusDiv.textContent = `${t["gen.isar._id_.79"]} ${err.message}`;
+      submitBtn.disabled = false;
+      submitBtn.textContent = t["gen.isar._id_.80"];
+    }
+  });
+</script>

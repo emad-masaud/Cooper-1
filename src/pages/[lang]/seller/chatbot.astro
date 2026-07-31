@@ -1,0 +1,45 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import SellerSubNav from "~/components/seller/SellerSubNav.astro";
+import SellerChatbotClient from "~/components/seller/SellerChatbotClient";
+import { getMeamartSession } from "~/utils/session";
+import { defaultLang } from "~/i18n/ui";
+import { isRtl } from "~/i18n/utils";
+
+export const prerender = false;
+
+const { lang = defaultLang } = Astro.params;
+const rtl = isRtl(lang);
+
+const rawSession = await getMeamartSession(Astro);
+const session = rawSession || {
+  id: "seller-default-user",
+  name: "المعلن",
+};
+---
+
+<Layout
+  title="محرر البوت الذكي | ميمارت"
+  description="إدارة ردود البوت الذكي ومحادثات العملاء"
+>
+  <Container>
+    <div class="py-8">
+      <PageHeader
+        title={lang === "ar"
+          ? "محرر البوت الذكي"
+          : "Smart Bot Editor"}
+        description={lang === "ar"
+          ? "إدارة ردود البوت التلقائية ومتابعة المحادثات وتجهيز الويبهوك"
+          : "Manage bot auto-replies, track conversations and setup webhook"}
+      />
+
+      <SellerSubNav lang={lang} activeTab="chatbot" />
+
+      <div class="mt-8 max-w-7xl mx-auto">
+        <SellerChatbotClient client:load lang={lang} />
+      </div>
+    </div>
+  </Container>
+</Layout>

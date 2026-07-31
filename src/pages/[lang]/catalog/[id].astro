@@ -1,0 +1,655 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import { languages } from "~/i18n/ui";
+import { useTranslations } from "~/i18n/utils";
+import { siteConfig } from "~/site.config";
+import { supabaseAdminClient } from "~/utils/supabase";
+import { resolveSellerFromHost } from "~/utils/domains";
+import {
+  ShoppingBag,
+  CheckCircle,
+  ArrowRight,
+  Tag,
+  Barcode,
+  Scale,
+  Box,
+  Layers,
+} from "lucide-react";
+import Schema from "~/components/layout/Schema.astro";
+
+export const prerender = false;
+
+const { lang, id } = Astro.params;
+const t = useTranslations(lang);
+
+const host =
+  Astro.request.headers.get("host") || new URL(Astro.request.url).host;
+const seller = await resolveSellerFromHost(host);
+
+// Fetch product from Supabase
+let productRow: any = null;
+try {
+  const { data } = await supabaseAdminClient
+    .from("products")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  productRow = data;
+} catch (e) {
+  console.error("Failed to fetch product from Supabase", e);
+}
+
+if (!productRow || productRow.is_active === false) {
+  return Astro.redirect(`/${lang}/catalog`);
+}
+
+// Seller profile for the product
+let sellerProfile: any = null;
+if (productRow.user_id) {
+  try {
+    const { data } = await supabaseAdminClient
+      .from("profiles")
+      .select("*")
+      .eq("id", productRow.user_id)
+      .maybeSingle();
+    sellerProfile = data;
+  } catch (e) {
+    console.error("Failed to fetch seller profile from Supabase", e);
+  }
+}
+
+const productImages = [
+  productRow.image_url,
+  ...(productRow.additional_images || []),
+]
+  .filter(Boolean)
+  .map((src: string) => ({ src }));
+
+const product: any = {
+  id: productRow.id,
+  name: productRow.title,
+  sku: productRow.sku || "",
+  price: Number(productRow.sale_price ?? productRow.price ?? 0),
+  description: productRow.description || "",
+  short_description: "",
+  images: productImages,
+  stock_status:
+    productRow.availability === "out_of_stock" ? "outofstock" : "instock",
+  tax_status: "none",
+  type: "simple",
+  attributes: [],
+  weight: null,
+  dimensions: null,
+  brand: productRow.brand || "MeaMart",
+};
+const variations: any[] = [];
+
+const sellerPhone = sellerProfile?.phone || siteConfig.chatbot.phoneNumber;
+
+if (seller) {
+  const matchId =
+    seller.id &&
+    productRow.user_id &&
+    String(productRow.user_id) === String(seller.id);
+  const matchPhone =
+    seller.phone &&
+    sellerProfile?.phone &&
+    sellerProfile.phone.replace(/[^0-9]/g, "") ===
+      seller.phone.replace(/[^0-9]/g, "");
+  if (!matchId && !matchPhone) {
+    return Astro.redirect(`/${lang}/catalog`);
+  }
+}
+
+const whatsappBotNumber = siteConfig.chatbot.phoneNumber;
+const productIdentifier = product.id;
+const skuIdentifier = product.sku || product.id;
+const whatsappMsg = t["product.whatsapp.msg"]
+  .replace("{id}", String(productIdentifier))
+  .replace("{name}", product.name)
+  .replace("{sku}", skuIdentifier);
+const whatsappUrl = `https://wa.me/${whatsappBotNumber}?text=${encodeURIComponent(whatsappMsg)}`;
+
+const brandVal = productRow.brand || "";
+const brandImageVal = "";
+const supplierVal = "";
+const supplierImageVal = "";
+const gtinVal = productRow.gtin || "";
+const mpnVal = productRow.mpn || "";
+const conditionVal = productRow.condition || "new";
+const sellerName = sellerProfile?.name || t["product.seller.default"];
+
+const conditionSchemaUrl =
+  conditionVal === "new"
+    ? "https://schema.org/NewCondition"
+    : conditionVal === "refurbished"
+      ? "https://schema.org/RefurbishedCondition"
+      : "https://schema.org/UsedCondition";
+const availabilitySchemaUrl =
+  product.stock_status === "instock"
+    ? "https://schema.org/InStock"
+    : "https://schema.org/OutOfStock";
+const conditionDisplay =
+  conditionVal === "new"
+    ? t["product.condition.new"]
+    : conditionVal === "refurbished"
+      ? t["product.condition.refurbished"]
+      : t["product.condition.used"];
+
+const productJsonLd = {
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  name: product.name,
+  image: product.images?.[0]?.src || `${Astro.url.origin}/logo.svg`,
+  description:
+    product.description?.replace(/<\/?[^>]+(>|$)/g, "") ||
+    product.short_description?.replace(/<\/?[^>]+(>|$)/g, "") ||
+    product.name,
+  sku: product.sku || String(product.id),
+  ...(gtinVal ? { gtin: gtinVal } : {}),
+  ...(mpnVal ? { mpn: mpnVal } : {}),
+  brand: { "@type": "Brand", name: brandVal || "MeaMart" },
+  offers: {
+    "@type": "Offer",
+    priceCurrency: "SAR",
+    price: Number(product.price) || 0,
+    itemCondition: conditionSchemaUrl,
+    availability: availabilitySchemaUrl,
+    url: Astro.url.href,
+    seller: {
+      "@type": "Person",
+      name: sellerName,
+      telephone: sellerPhone,
+      contactPoint: {
+        "@type": "ContactPoint",
+        contactType: "sales",
+        telephone: sellerPhone,
+        url: whatsappUrl,
+        availableLanguage: [t["gen.isar._id_.1"]],
+      },
+    },
+  },
+  potentialAction: {
+    "@type": "CommunicateAction",
+    name: t["product.buy.whatsapp"],
+    instrument: {
+      "@type": "SoftwareApplication",
+      name: "WhatsApp",
+    },
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: whatsappUrl,
+      actionPlatform: [
+        "http://schema.org/DesktopWebPlatform",
+        "http://schema.org/MobileWebPlatform",
+        "http://schema.org/AndroidPlatform",
+        "http://schema.org/IOSPlatform",
+      ],
+    },
+    about: {
+      "@type": "Product",
+      name: product.name,
+      sku: product.sku || String(product.id),
+    },
+    description: whatsappMsg,
+  },
+};
+---
+
+<Layout
+  title={t["product.page.title"].replace("{name}", product.name)}
+  description={product.short_description || product.name}
+>
+  <Schema item={productJsonLd} />
+
+  <Container class="py-12">
+    <a
+      href={`/${lang}/catalog`}
+      class="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500 hover:text-primary mb-8 transition-colors"
+    >
+      <ArrowRight className="h-4 w-4 rotate-180" />
+      {t["product.back.to.market"]}
+    </a>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div class="lg:col-span-7 space-y-6">
+        <div
+          class="rounded-3xl border border-zinc-200/50 bg-white/40 p-4 shadow-md backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 overflow-hidden"
+        >
+          <div
+            class="aspect-square w-full rounded-full overflow-hidden bg-zinc-100 dark:bg-zinc-800"
+          >
+            <img
+              src={product.images?.[0]?.src || "/logo.svg"}
+              alt={product.name}
+              class="w-full h-full object-cover"
+            />
+          </div>
+          {
+            product.images && product.images.length > 1 && (
+              <div class="grid grid-cols-4 gap-4 mt-4">
+                {product.images.map((img: any) => (
+                  <div class="aspect-square rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/30">
+                    <img
+                      src={img.src}
+                      alt={product.name}
+                      class="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            )
+          }
+        </div>
+
+        <div
+          class="rounded-3xl border border-zinc-200/50 bg-white/40 p-6 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40"
+        >
+          <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+            {t["product.description.title"]}
+          </h2>
+          <div
+            class="prose prose-zinc dark:prose-invert max-w-none text-zinc-650 dark:text-zinc-350"
+            set:html={product.description || product.short_description}
+          />
+        </div>
+      </div>
+
+      <div class="lg:col-span-5 space-y-6">
+        <div
+          class="rounded-3xl border border-zinc-200/50 bg-white/60 p-6 shadow-md backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60"
+        >
+          <div class="flex items-center gap-2 mb-4">
+            <span
+              class="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary"
+            >
+              <ShoppingBag className="h-3.5 w-3.5" />
+            </span>
+            <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400"
+              >SKU: {product.sku}</span
+            >
+          </div>
+
+          <h1
+            class="text-2xl font-bold font-display text-zinc-900 dark:text-zinc-50 mb-4"
+          >
+            {product.name}
+          </h1>
+
+          <div class="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-full mb-6">
+            <span class="text-xs font-semibold text-zinc-500 block mb-1"
+              >{t["product.price.label"]}</span
+            >
+            <span class="text-3xl font-extrabold text-primary">
+              {product.price}
+              {t["product.currency"]}
+            </span>
+            {
+              product.tax_status === "taxable" && (
+                <span class="text-xs font-medium text-zinc-400 block mt-1">
+                  {t["product.price.vat.note"]}
+                </span>
+              )
+            }
+          </div>
+
+          {
+            product.type === "variable" &&
+              product.attributes &&
+              product.attributes.length > 0 && (
+                <div
+                  id="variation-selectors-container"
+                  class="space-y-4 mb-6 border-t border-zinc-100 pt-4 dark:border-zinc-800/50"
+                >
+                  <h3 class="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
+                    <span class="inline-block h-2.5 w-2.5 rounded-full bg-primary" />
+                    <span>{t["product.select.options"]}</span>
+                  </h3>
+                  {product.attributes.map((attr: any) => (
+                    <div class="attribute-selector-group" data-name={attr.name}>
+                      <span class="text-xs font-semibold text-zinc-450 block mb-2">
+                        {attr.name}
+                      </span>
+                      <div class="flex flex-wrap gap-2">
+                        {attr.options?.map((opt: string) => (
+                          <button
+                            type="button"
+                            class="attr-opt-btn rounded-xl border border-zinc-200 bg-white/80 py-2 px-4 text-xs font-semibold hover:border-primary transition-all dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-zinc-600"
+                            data-val={opt}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+          }
+
+          <div class="flex flex-col gap-3 w-full">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+              <button
+                type="button"
+                id="add-ad-new-btn"
+                class="flex items-center justify-center gap-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary py-3.5 px-3 text-xs sm:text-sm font-bold border border-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  ><path d="M12 5v14M5 12h14"></path></svg
+                >
+                <span>أضف كإعلان (حالة جديد)</span>
+              </button>
+
+              <button
+                type="button"
+                id="add-ad-used-btn"
+                class="flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 py-3.5 px-3 text-xs sm:text-sm font-bold border border-amber-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  ><path d="M12 5v14M5 12h14"></path></svg
+                >
+                <span>أضف كإعلان (حالة مستعمل)</span>
+              </button>
+            </div>
+
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex items-center justify-center gap-3 w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-emerald-600 hover:scale-[1.02] active:scale-[0.98]"
+              itemscope
+              itemtype="https://schema.org/CommunicateAction"
+            >
+              <meta itemprop="name" content={t["product.buy.whatsapp"]} />
+              <meta itemprop="target" content={whatsappUrl} />
+              <svg
+                viewBox="0 0 24 24"
+                class="h-5 w-5 shrink-0"
+                fill="currentColor"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"
+                ></path>
+              </svg>
+              <span>{t["product.buy.whatsapp"]}</span>
+            </a>
+          </div>
+        </div>
+
+        <div
+          class="rounded-3xl border border-zinc-200/50 bg-white/40 p-6 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 space-y-4"
+        >
+          <div
+            class="flex items-center justify-between text-sm border-b border-zinc-100 pb-2 dark:border-zinc-800"
+          >
+            <span class="text-zinc-500">{t["product.status"]}</span>
+            <span
+              class="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1"
+            >
+              <CheckCircle className="h-3.5 w-3.5" />
+              {
+                product.stock_status === "instock"
+                  ? t["product.status.instock"]
+                  : t["product.status.outofstock"]
+              }
+            </span>
+          </div>
+
+          {
+            brandVal && (
+              <div class="flex items-center justify-between text-sm border-b border-zinc-100 pb-2 dark:border-zinc-800">
+                <span class="text-zinc-500">{t["product.brand"]}</span>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-zinc-900 dark:text-zinc-300">
+                    {brandVal}
+                  </span>
+                  {brandImageVal && (
+                    <img
+                      src={brandImageVal}
+                      alt={brandVal}
+                      class="h-6 w-6 object-contain rounded-md border border-zinc-200 dark:border-zinc-800 bg-white p-0.5"
+                    />
+                  )}
+                </div>
+              </div>
+            )
+          }
+
+          {
+            supplierVal && (
+              <div class="flex items-center justify-between text-sm border-b border-zinc-100 pb-2 dark:border-zinc-800">
+                <span class="text-zinc-500">{t["product.supplier"]}</span>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-zinc-900 dark:text-zinc-300">
+                    {supplierVal}
+                  </span>
+                  {supplierImageVal && (
+                    <img
+                      src={supplierImageVal}
+                      alt={supplierVal}
+                      class="h-6 w-6 object-contain rounded-md border border-zinc-200 dark:border-zinc-800 bg-white p-0.5"
+                    />
+                  )}
+                </div>
+              </div>
+            )
+          }
+
+          {
+            gtinVal && (
+              <div class="flex items-center justify-between text-sm border-b border-zinc-100 pb-2 dark:border-zinc-800">
+                <span class="text-zinc-500">{t["product.barcode.gtin"]}</span>
+                <span class="font-bold text-zinc-900 dark:text-zinc-300">
+                  {gtinVal}
+                </span>
+              </div>
+            )
+          }
+
+          {
+            mpnVal && (
+              <div class="flex items-center justify-between text-sm border-b border-zinc-100 pb-2 dark:border-zinc-800">
+                <span class="text-zinc-500">{t["product.mpn"]}</span>
+                <span class="font-bold text-zinc-900 dark:text-zinc-300">
+                  {mpnVal}
+                </span>
+              </div>
+            )
+          }
+
+          <div
+            class="flex items-center justify-between text-sm border-b border-zinc-100 pb-2 dark:border-zinc-800"
+          >
+            <span class="text-zinc-500">{t["product.condition"]}</span>
+            <span class="font-bold text-zinc-900 dark:text-zinc-300"
+              >{conditionDisplay}</span
+            >
+          </div>
+
+          {
+            product.weight && (
+              <div class="flex items-center justify-between text-sm border-b border-zinc-100 pb-2 dark:border-zinc-800">
+                <span class="text-zinc-500">{t["product.weight"]}</span>
+                <span class="font-bold text-zinc-900 dark:text-zinc-50">
+                  {product.weight} {t["product.weight.unit"]}
+                </span>
+              </div>
+            )
+          }
+
+          {
+            (product.dimensions?.length ||
+              product.dimensions?.width ||
+              product.dimensions?.height) && (
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-zinc-500">{t["product.dimensions"]}</span>
+                <span class="font-bold text-zinc-900 dark:text-zinc-550">
+                  {product.dimensions.length || 0} x{" "}
+                  {product.dimensions.width || 0} x{" "}
+                  {product.dimensions.height || 0}{" "}
+                  {t["product.dimensions.unit"]}
+                </span>
+              </div>
+            )
+          }
+        </div>
+      </div>
+    </div>
+  </Container>
+</Layout>
+
+<script
+  is:inline
+  define:vars={{
+    lang,
+    variations,
+    productSku: product.sku,
+    productName: product.name,
+    productDesc: product.description || product.short_description || "",
+    productImages: product.images || [],
+    productBrand: product.brand || "MeaMart",
+    productId: product.id,
+    whatsappBotNumber,
+    isAr,
+    defaultPrice: product.price,
+    tCurrency: t["product.currency"],
+    tBuyWhatsapp: t["product.buy.whatsapp"],
+    tOutOfStock: t["product.status.outofstock"],
+    tWaMsgTemplate: t["product.whatsapp.variation.msg"],
+  }}
+>
+  const btnGroups = document.querySelectorAll(".attribute-selector-group");
+  const priceDisplay = document.querySelector(
+    ".text-3xl.font-extrabold.text-primary",
+  );
+  const checkoutBtn = document.querySelector('a[href^="https://wa.me/"]');
+  const addAdNewBtn = document.getElementById("add-ad-new-btn");
+  const addAdUsedBtn = document.getElementById("add-ad-used-btn");
+  let selectedOptions = {};
+
+  function cleanHtmlText(html) {
+    if (!html) return "";
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    return div.textContent || div.innerText || "";
+  }
+
+  function handleCatalogAddAd(conditionMode) {
+    const currentPriceText = priceDisplay
+      ? priceDisplay.textContent.replace(/[^\d.]/g, "")
+      : defaultPrice;
+    const cleanDesc = cleanHtmlText(productDesc) || productName;
+    const imageUrls =
+      conditionMode === "new"
+        ? Array.isArray(productImages)
+          ? productImages
+              .map((img) => img?.src || img?.url || img)
+              .filter(Boolean)
+          : []
+        : []; // For used condition, user MUST add their own real item images for credibility
+
+    const catalogAdPayload = {
+      title: productName,
+      description: cleanDesc,
+      price: currentPriceText || defaultPrice,
+      listing_condition: conditionMode,
+      categoryKey: "electronics",
+      brand: productBrand,
+      sku: productSku,
+      images: imageUrls,
+      from_catalog_condition: conditionMode,
+    };
+
+    try {
+      sessionStorage.setItem(
+        "catalog_prefill_ad",
+        JSON.stringify(catalogAdPayload),
+      );
+    } catch (e) {
+      console.error("Failed to save catalog prefill payload:", e);
+    }
+
+    window.location.href = `/${lang}/ads/create?from_catalog=1&condition=${conditionMode}`;
+  }
+
+  if (addAdNewBtn) {
+    addAdNewBtn.addEventListener("click", () => handleCatalogAddAd("new"));
+  }
+
+  if (addAdUsedBtn) {
+    addAdUsedBtn.addEventListener("click", () => handleCatalogAddAd("used"));
+  }
+
+  btnGroups.forEach((group) => {
+    const attrName = group.getAttribute("data-name");
+    const buttons = group.querySelectorAll(".attr-opt-btn");
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        buttons.forEach((b) =>
+          b.classList.remove("border-primary", "bg-primary/5", "text-primary"),
+        );
+        btn.classList.add("border-primary", "bg-primary/5", "text-primary");
+        selectedOptions[attrName] = btn.getAttribute("data-val");
+        const allSelected = Array.from(btnGroups).every(
+          (g) => selectedOptions[g.getAttribute("data-name")],
+        );
+        if (allSelected) {
+          const matchedVar = variations.find((v) => {
+            return v.attributes.every((attr) => {
+              const name = attr.name;
+              const value = attr.option || attr.value;
+              return (
+                String(selectedOptions[name]).toLowerCase() ===
+                String(value).toLowerCase()
+              );
+            });
+          });
+          if (matchedVar) {
+            const varPrice =
+              matchedVar.price || matchedVar.regular_price || defaultPrice;
+            priceDisplay.textContent = `${varPrice} ${tCurrency}`;
+            const selectionStr = Object.entries(selectedOptions)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(", ");
+            const waText = tWaMsgTemplate
+              .replace("{id}", String(productId))
+              .replace("{name}", productName)
+              .replace("{options}", selectionStr)
+              .replace("{sku}", matchedVar.sku || productSku);
+            checkoutBtn.setAttribute(
+              "href",
+              `https://wa.me/${whatsappBotNumber}?text=${encodeURIComponent(waText)}`,
+            );
+            if (matchedVar.stock_status === "outofstock") {
+              checkoutBtn.classList.add("opacity-50", "pointer-events-none");
+              const span = checkoutBtn.querySelector("span");
+              if (span) span.textContent = tOutOfStock;
+            } else {
+              checkoutBtn.classList.remove("opacity-50", "pointer-events-none");
+              const span = checkoutBtn.querySelector("span");
+              if (span) span.textContent = tBuyWhatsapp;
+            }
+          }
+        }
+      });
+    });
+  });
+</script>

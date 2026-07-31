@@ -1,0 +1,94 @@
+---
+import { useTranslations } from '~/i18n/utils';
+import AdCard from '~/components/ui/AdCard.astro';
+import HomeSlideItem from '~/components/sections/home/HomeSlideItem.astro';
+
+interface AdItem {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  price: number;
+  currency?: string;
+  categoryKey: string;
+  categoryAr: string;
+  categoryEn: string;
+  cityAr: string;
+  cityEn: string;
+  image: string;
+  sellerPhone: string;
+}
+
+interface Props {
+  ads?: AdItem[];
+  lang?: string;
+}
+
+let { ads = [], lang = 'en' } = Astro.props as Props;
+
+if (ads.length === 0) {
+    const { erpnext } = await import('~/lib/erpnext/client');
+
+    const res = await erpnext.getListings({ limit: 6 });
+    const rawAds = res.data;
+
+    if (rawAds && rawAds.length > 0) {
+      ads = rawAds.map((ad: any) => {
+        const images = Array.isArray(ad.images) && ad.images.length > 0 ? ad.images.map((img: any) => img.image_url) : ['/logo.svg'];
+        
+        return {
+          id: String(ad.name),
+          slug: ad.name,
+          title: ad.title || 'بدون عنوان',
+          description: ad.description || '',
+          price: Number(ad.price) || 0,
+          currency: 'SAR',
+          categoryKey: ad.category || 'used-items',
+          categoryAr: ad.category,
+          categoryEn: ad.category,
+          cityAr: ad.city || '',
+          cityEn: ad.city || '',
+          image: images[0],
+          sellerPhone: ad.owner_phone || '',
+        };
+      });
+    }
+  } catch (e) {
+    console.error('Failed to self-fetch featured ads:', e);
+  }
+}
+
+const t = useTranslations(lang);
+---
+
+{ads.length > 0 && (
+  <section class="py-12 bg-muted/30">
+    <div class="container mx-auto px-4">
+      <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 class="text-3xl font-bold">{t['home.featured.title']}</h2>
+        </div>
+        <a href={`/${lang}/ads?featured=1`} class="text-sm font-semibold text-primary hover:underline">
+          {t['home.featured.view_all']}
+        </a>
+      </div>
+
+      <div class="flex snap-x snap-mandatory gap-4 overflow-x-auto pt-2 pb-4 px-1">
+        {ads.slice(0, 6).map((ad) => (
+          <HomeSlideItem class="min-w-[320px] max-w-85 snap-start">
+            <AdCard
+              title={ad.title}
+              price={ad.price}
+              category={lang === 'ar' ? ad.categoryAr : ad.categoryEn}
+              city={lang === 'ar' ? ad.cityAr : ad.cityEn}
+              image={ad.image}
+              sellerPhone={ad.sellerPhone}
+              slug={`/${lang}/ads/${ad.id}`}
+              lang={lang}
+            />
+          </HomeSlideItem>
+        ))}
+      </div>
+    </div>
+  </section>
+)}

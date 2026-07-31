@@ -1,0 +1,540 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import Grid from "~/components/ui/Grid.astro";
+import Heading from "~/components/ui/Heading.astro";
+import Card from "~/components/ui/Card.astro";
+import StatItem from "~/components/ui/StatItem.astro";
+import { getLangFromUrl, useTranslations } from "~/i18n/utils";
+import { languages } from "~/i18n/ui";
+import { meachat } from "~/utils/meachat";
+import { getCollection } from "astro:content";
+import { categoriesMap } from "~/utils/categories";
+import { getCityLabel } from "~/utils/cities";
+import { kvGet } from "~/utils/kv";
+import { Eye, Share2 } from "lucide-react";
+import { supabaseAdminClient } from "~/utils/supabase";
+
+export const prerender = false;
+
+const { lang } = Astro.params;
+const t = useTranslations(lang);
+const isAr = lang === "ar";
+
+const currentLang = t['gen.lt.trend.1'] as "ar" | "en";
+
+// 1. Get real Ads statistics from Astro Content Collection
+let totalAds = 0;
+let totalViews = 0;
+let trendingAds: any[] = [];
+let categoryVolume: { name: string; count: number; percentage: number }[] = [];
+let locationVolume: { name: string; count: number; percentage: number }[] = [];
+
+try {
+  const ads = await getCollection("ads");
+  const activeAds = ads.filter(
+    (ad) => ad.data.listing_status === "active" || !ad.data.listing_status,
+  );
+  totalAds = activeAds.length;
+
+  if (totalAds > 0) {
+    // Categories count
+    const categoryCounts: Record<string, number> = {};
+    activeAds.forEach((ad) => {
+      if (ad.data.categoryKey) {
+        categoryCounts[ad.data.categoryKey] =
+          (categoryCounts[ad.data.categoryKey] || 0) + 1;
+      }
+    });
+
+    categoryVolume = Object.entries(categoryCounts)
+      .map(([key, count]) => {
+        const label =
+          categoriesMap[key]?.[currentLang] || categoriesMap[key]?.en || key;
+        return {
+          name: label,
+          count,
+          percentage: Math.round((count / totalAds) * 100),
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    // Cities count
+    const cityCounts: Record<string, number> = {};
+    activeAds.forEach((ad) => {
+      if (ad.data.listing_city) {
+        cityCounts[ad.data.listing_city] =
+          (cityCounts[ad.data.listing_city] || 0) + 1;
+      }
+    });
+
+    locationVolume = Object.entries(cityCounts)
+      .map(([key, count]) => {
+        const label = getCityLabel(key, currentLang);
+        return {
+          name: label,
+          count,
+          percentage: Math.round((count / totalAds) * 100),
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    // KV Views mapping
+    const adsWithViews = await Promise.all(activeAds.map(async (ad) => {
+      
+      const viewsKey = `ad:views:${adWpId || ad.id}`;
+      let views = 0;
+      try {
+        views = Number(await kvGet(Astro, viewsKey) || 0);
+      } catch (e) {
+        console.error('Failed to get views from KV', e);
+      }
+      return { ad, views };
+    }));
+    
+    totalViews = adsWithViews.reduce((sum, item) => sum + item.views, 0);
+    trendingAds = adsWithViews
+      .filter(item => item.views > 0)
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 6); // Top 6 trending ads
+  }
+} catch (e) {
+  console.error("Failed to load real ad collection metrics in trend page", e);
+}
+
+// 2. Fetch real subscribers list from MeaChat API
+let totalSubscribers = 0;
+let latestContacts: { name: string; phone: string; date: string }[] = [];
+let hasMeaChatError = false;
+
+try {
+  const result = await meachat.getSubscribers(100);
+  if (result && result.status === "1" && Array.isArray(result.message)) {
+    totalSubscribers = result.message.length;
+    latestContacts = result.message.slice(0, 5).map((sub: any) => {
+      const phone = sub.phone_number || "";
+      const masked =
+        phone.length > 7 ? `${phone.slice(0, 4)}***${phone.slice(-4)}` : phone;
+
+      let dateString = "";
+      if (sub.created_at) {
+        try {
+          const dateLocale = t['gen.lt.trend.2'];
+          dateString = new Date(sub.created_at).toLocaleDateString(
+            dateLocale,
+            {
+              month: "short",
+              day: "numeric",
+            },
+          );
+        } catch {
+          dateString = sub.created_at;
+        }
+      }
+
+      return {
+        name: sub.name || t['gen.lt.trend.3'],
+        phone: masked,
+        date: dateString,
+      };
+    });
+  }
+} catch (e) {
+  console.error("Failed to load MeaChat subscribers list in trend page", e);
+  hasMeaChatError = true;
+}
+
+// 3. Fetch aggregated public QR Code Platform Statistics (No personal data)
+let totalQrScans = 0;
+let totalQrWhatsAppChats = 0;
+let qrDevicesStats: { name: string; count: number; percentage: number }[] = [];
+let qrCitiesStats: { name: string; count: number; percentage: number }[] = [];
+
+try {
+  const { data: links } = await supabaseAdminClient
+    .from('qr_links')
+    .select('clicks_count, whatsapp_conversations_count, last_scanned_device, last_scanned_city')
+    .eq('is_active', true);
+
+  if (links && links.length > 0) {
+    const deviceCounts: Record<string, number> = {};
+    const cityCounts: Record<string, number> = {};
+
+    links.forEach((l: any) => {
+      const scans = l.clicks_count || 0;
+      totalQrScans += scans;
+      totalQrWhatsAppChats += l.whatsapp_conversations_count || 0;
+
+      const dev = l.last_scanned_device || (isAr ? 'جوال' : 'Mobile');
+      deviceCounts[dev] = (deviceCounts[dev] || 0) + scans;
+
+      const city = l.last_scanned_city || (isAr ? 'الرياض' : 'Riyadh');
+      cityCounts[city] = (cityCounts[city] || 0) + scans;
+    });
+
+    const totalScannedForStats = totalQrScans || 1;
+
+    qrDevicesStats = Object.entries(deviceCounts)
+      .map(([name, count]) => ({
+        name,
+        count,
+        percentage: Math.round((count / totalScannedForStats) * 100)
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+
+    qrCitiesStats = Object.entries(cityCounts)
+      .map(([name, count]) => ({
+        name,
+        count,
+        percentage: Math.round((count / totalScannedForStats) * 100)
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 4);
+  }
+} catch (e) {
+  console.error("Failed to load QR platform statistics in trend page", e);
+}
+---
+
+<Layout
+  title={t['gen.lt.trend.4']}
+>
+  <Container class="py-16">
+    <div class="mb-12">
+      <Heading level={1} class="mb-2">
+        {t['gen.lt.trend.5']}
+      </Heading>
+      <p class="text-lg text-muted">
+        {t['gen.lt.trend.6']}
+      </p>
+    </div>
+
+    <!-- Summary Stats -->
+    <Grid cols={4} class="mb-12">
+      <StatItem
+        label={t['gen.lt.trend.7']}
+        value={totalAds.toLocaleString()}
+      />
+      <StatItem
+        label={t['gen.lt.trend.8']}
+        value={totalViews.toLocaleString()}
+      />
+      <StatItem
+        label={t['gen.lt.trend.9']}
+        value={totalSubscribers > 0
+          ? totalSubscribers.toLocaleString()
+          : t['gen.lt.trend.10']}
+      />
+      <StatItem
+        label={t['gen.lt.trend.11']}
+        value="3"
+      />
+    </Grid>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+      <!-- By Category Table -->
+      <div class="lg:col-span-8">
+        <Card class="h-full">
+          <Heading level={2} class="mb-6">
+            {t['gen.lt.trend.12']}
+          </Heading>
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead>
+                <tr
+                  class="border-b-2 border-muted text-zinc-500 dark:text-zinc-400"
+                >
+                  <th class="text-start p-3 text-sm font-bold"
+                    >{t['gen.lt.trend.13']}</th
+                  >
+                  <th class="text-start p-3 text-sm font-bold"
+                    >{t['gen.lt.trend.14']}</th
+                  >
+                  <th class="text-start p-3 text-sm font-bold"
+                    >{t['gen.lt.trend.15']}</th
+                  >
+                </tr>
+              </thead>
+              <tbody>
+                {
+                  categoryVolume.length === 0 ? (
+                    <tr>
+                      <td colspan="3" class="text-center p-8 text-muted">
+                        {t['gen.lt.trend.16']}
+                      </td>
+                    </tr>
+                  ) : (
+                    categoryVolume.map((cat) => (
+                      <tr class="border-b border-muted hover:bg-background transition">
+                        <td class="p-3 font-medium text-zinc-800 dark:text-zinc-200">
+                          {cat.name}
+                        </td>
+                        <td class="p-3 text-zinc-650 dark:text-zinc-400">
+                          {cat.count.toLocaleString()}
+                        </td>
+                        <td class="p-3">
+                          <div class="flex items-center gap-3">
+                            <div class="bg-muted h-3 flex-1 rounded-full overflow-hidden min-w-25">
+                              <div
+                                class="bg-primary h-full transition-all"
+                                style={`width: ${cat.percentage}%`}
+                              />
+                            </div>
+                            <span class="text-xs font-bold text-zinc-500 dark:text-zinc-400 w-8 text-end">
+                              {cat.percentage}%
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )
+                }
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+
+      <!-- By Location -->
+      <div class="lg:col-span-4">
+        <Card class="h-full">
+          <Heading level={2} class="mb-6">
+            {t['gen.lt.trend.17']}
+          </Heading>
+          <div class="space-y-5">
+            {
+              locationVolume.length === 0 ? (
+                <div class="text-center py-8 text-muted">
+                  {t['gen.lt.trend.18']}
+                </div>
+              ) : (
+                locationVolume.map((loc) => (
+                  <div>
+                    <div class="flex justify-between mb-2">
+                      <span class="font-medium text-zinc-800 dark:text-zinc-200 text-sm">
+                        {loc.name}
+                      </span>
+                      <span class="text-xs font-bold text-zinc-500 dark:text-zinc-400">
+                        {loc.count} {t['gen.lt.trend.19']} ({loc.percentage}%)
+                      </span>
+                    </div>
+                    <div class="bg-muted h-2.5 rounded-full overflow-hidden">
+                      <div
+                        class="bg-primary h-full transition-all"
+                        style={`width: ${loc.percentage}%`}
+                      />
+                    </div>
+                  </div>
+                ))
+              )
+            }
+          </div>
+        </Card>
+      </div>
+    </div>
+
+    <!-- QR Code Platform Statistics (Public Aggregates Only) -->
+    <Card class="mb-12 border-primary/20 bg-gradient-to-br from-primary/5 via-white to-primary/10 dark:from-primary/10 dark:via-zinc-900 dark:to-zinc-900">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <Heading level={2}>
+            {isAr ? "إحصائيات الباركود الذكي والتفاعل" : "Smart QR & Engagement Trend"}
+          </Heading>
+          <p class="text-xs font-bold text-muted mt-1">
+            {isAr
+              ? "إجمالي عمليات المسح ومحادثات الواتساب المفتوحة وتوزيع الأجهزة والمدن النشطة (بدون أي بيانات شخصية)"
+              : "Aggregated QR scans, WhatsApp conversations, devices breakdown, and active cities"}
+          </p>
+        </div>
+        <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-primary/15 text-primary">
+          {isAr ? "مؤشرات الباركود" : "QR Trend"}
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="rounded-3xl border border-zinc-200/80 bg-white/80 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/80">
+          <span class="text-xs font-bold text-zinc-400 block mb-1">{isAr ? "إجمالي عمليات المسح" : "Total QR Scans"}</span>
+          <span class="text-3xl font-black text-primary">{totalQrScans.toLocaleString()}</span>
+        </div>
+
+        <div class="rounded-3xl border border-zinc-200/80 bg-white/80 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/80">
+          <span class="text-xs font-bold text-zinc-400 block mb-1">{isAr ? "محادثات واتساب المفتوحة" : "WhatsApp Chats Opened"}</span>
+          <span class="text-3xl font-black text-emerald-600">{totalQrWhatsAppChats.toLocaleString()}</span>
+        </div>
+
+        <div class="rounded-3xl border border-zinc-200/80 bg-white/80 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/80">
+          <span class="text-xs font-bold text-zinc-400 block mb-2">{isAr ? "أبرز الأجهزة الماسحة" : "Top Scan Devices"}</span>
+          <div class="space-y-1.5">
+            {qrDevicesStats.length === 0 ? (
+              <span class="text-xs text-zinc-400">{isAr ? "جوال (100%)" : "Mobile (100%)"}</span>
+            ) : (
+              qrDevicesStats.map(d => (
+                <div class="flex justify-between text-xs font-bold">
+                  <span class="text-zinc-700 dark:text-zinc-300">{d.name}</span>
+                  <span class="text-primary">{d.percentage}%</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div class="rounded-3xl border border-zinc-200/80 bg-white/80 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/80">
+          <span class="text-xs font-bold text-zinc-400 block mb-2">{isAr ? "المدن والمناطق الأكثر مسحاً" : "Top Scan Cities"}</span>
+          <div class="space-y-1.5">
+            {qrCitiesStats.length === 0 ? (
+              <span class="text-xs text-zinc-400">{isAr ? "الرياض (100%)" : "Riyadh (100%)"}</span>
+            ) : (
+              qrCitiesStats.map(c => (
+                <div class="flex justify-between text-xs font-bold">
+                  <span class="text-zinc-700 dark:text-zinc-300">{c.name}</span>
+                  <span class="text-emerald-600">{c.percentage}%</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </Card>
+
+    <!-- Trending Listings -->
+    <Card class="mb-12">
+      <div class="flex items-center justify-between mb-6">
+        <Heading level={2}>
+          {t['gen.lt.trend.20']}
+        </Heading>
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary">
+          {t['gen.lt.trend.21']}
+        </span>
+      </div>
+
+      {trendingAds.length === 0 ? (
+        <div class="py-8 text-center text-zinc-500 dark:text-zinc-400">
+          <p class="text-sm font-semibold">{t['gen.lt.trend.22']}</p>
+        </div>
+      ) : (
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {trendingAds.map(({ ad, views }) => {
+            const hasValidImg = ad.data.image && ad.data.image !== '' && ad.data.image !== '/' && !ad.data.image.includes('undefined');
+            const displayImg = hasValidImg ? ad.data.image : '/og-image.webp';
+            const viewsText = t['gen.lt.trend.23'];
+            const adCategoryKey = String(ad.data.categoryKey || '');
+            return (
+              <div class="group relative overflow-hidden rounded-3xl border border-zinc-200/50 bg-white/40 p-4 shadow-xs backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-zinc-300/80 hover:shadow-lg dark:border-zinc-800/50 dark:bg-zinc-900/40 dark:hover:border-zinc-700/80 dark:hover:shadow-2xl flex flex-col justify-between h-full">
+                <!-- Image/Badge -->
+                <div class="relative aspect-video w-full overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-800 shrink-0">
+                  <img 
+                    src={displayImg} 
+                    alt={ad.data.listing_title} 
+                    class="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                    onerror="this.src='/og-image.webp'; this.onerror=null;"
+                  />
+                  <div class="absolute top-3 left-3 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white backdrop-blur-xs">
+                    {categoriesMap[adCategoryKey]?.[currentLang] || categoriesMap[adCategoryKey]?.en || adCategoryKey}
+                  </div>
+                  <!-- Views Badge overlay -->
+                  <div class="absolute bottom-3 left-3 rounded-full bg-zinc-950/80 px-2.5 py-1 text-xs font-bold text-white shadow-md backdrop-blur-xs flex items-center gap-1.5">
+                    <Eye className="h-3.5 w-3.5 text-zinc-300 animate-pulse" />
+                    <span>{views} {viewsText}</span>
+                  </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mt-4 flex flex-col justify-between flex-1">
+                  <div class="space-y-2 mb-4">
+                    <h3 class="line-clamp-1 font-display text-lg font-bold text-zinc-900 group-hover:text-primary transition-colors dark:text-zinc-50">
+                      <a href={`/${lang}/ads/${ad.id}`}>
+                        {ad.data.listing_title}
+                      </a>
+                    </h3>
+                    <p class="line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+                      {ad.data.listing_description}
+                    </p>
+                  </div>
+
+                  <!-- Actions -->
+                  <div class="flex items-center gap-2 mt-auto">
+                    <a 
+                      href={`/${lang}/ads/${ad.id}`}
+                      class="flex-1 text-center py-2.5 rounded-full border border-zinc-200 text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      {t['gen.lt.trend.24']}
+                    </a>
+                    <a 
+                      href={`/${lang}/ads/${ad.id}`}
+                      class="shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 transition dark:bg-violet-900/20 dark:text-violet-300 dark:hover:bg-violet-900/30"
+                      title={t['gen.lt.trend.25']}
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+
+    <!-- Latest WhatsApp Contacts from MeaChat -->
+
+    <Card class="mb-12">
+      <div class="flex items-center justify-between mb-6">
+        <Heading level={2}>
+          {t['gen.lt.trend.26']}
+        </Heading>
+        <span
+          class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+        >
+          {t['gen.lt.trend.27']}
+        </span>
+      </div>
+
+      {
+        hasMeaChatError ? (
+          <div class="p-6 text-center border border-red-200/50 bg-red-500/5 text-red-500 rounded-full">
+            {t['gen.lt.trend.28']}
+          </div>
+        ) : latestContacts.length === 0 ? (
+          <div class="p-8 text-center text-muted">
+            {t['gen.lt.trend.29']}
+          </div>
+        ) : (
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {latestContacts.map((contact) => (
+              <div class="flex items-center justify-between p-4 rounded-full border border-zinc-200/50 bg-white/40 dark:border-zinc-800/50 dark:bg-zinc-900/40">
+                <div class="flex items-center gap-3">
+                  <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <span class="text-sm font-bold">WA</span>
+                  </div>
+                  <div>
+                    <div class="font-bold text-zinc-900 dark:text-zinc-50 text-sm">
+                      {contact.name}
+                    </div>
+                    <div class="text-xs text-zinc-500 dark:text-zinc-400 dir-ltr text-start">
+                      {contact.phone}
+                    </div>
+                  </div>
+                </div>
+                <div class="text-xs font-semibold text-zinc-400 dark:text-zinc-500">
+                  {contact.date}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      }
+    </Card>
+
+    <!-- Note Banner -->
+    <div
+      class="p-4 bg-zinc-50 dark:bg-zinc-900/50 border-l-4 border-primary rounded-xl flex items-center gap-3"
+    >
+      <span class="text-base">🚀</span>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400">
+        <strong>{t['gen.lt.trend.30']}</strong>
+        {t['gen.lt.trend.31']}
+      </p>
+    </div>
+  </Container>
+</Layout>

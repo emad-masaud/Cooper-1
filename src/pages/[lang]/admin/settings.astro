@@ -1,0 +1,584 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import AdminNavTabs from "~/components/admin/AdminNavTabs.astro";
+import { parseAdminSession } from "~/utils/session";
+import { siteConfig } from "~/site.config";
+import { kvGet } from "~/utils/kv";
+import { defaultLang } from "~/i18n/ui";
+import { useTranslations } from "~/i18n/utils";
+import AdminEmailManagerClient from "~/components/admin/AdminEmailManagerClient";
+import WhatsApp2FASettings from "~/components/security/WhatsApp2FASettings";
+import { createSupabaseAdminServerClient } from "~/utils/supabase";
+import { decryptText } from "~/utils/crypto";
+import { getEnv } from "~/utils/env";
+
+export const prerender = false;
+
+const { lang = defaultLang } = Astro.params;
+const t = useTranslations(lang);
+
+const session = await parseAdminSession(Astro.cookies, Astro.locals);
+if (!session || !session.is_admin) {
+  return Astro.redirect(`/${lang}/admin-login`);
+}
+
+const adminClient = createSupabaseAdminServerClient({ locals: Astro.locals });
+const { data: userProfile } = await adminClient
+  .from("profiles")
+  .select("two_factor_enabled,two_factor_whatsapp_number")
+  .eq("id", session.id)
+  .maybeSingle();
+
+// Get current configuration values
+const overrideStr = await kvGet(Astro, "site_config_override");
+let currentConfig = {
+  name: siteConfig.name,
+  description: siteConfig.description,
+  keywords: siteConfig.seo.keywords,
+  ogImage: siteConfig.ogImage,
+  googleSiteVerification: siteConfig.marketing.googleSiteVerification,
+  googleAnalyticsId: siteConfig.analytics.vendors.googleAnalytics.id,
+  facebookPixelId: siteConfig.marketing.facebookPixel.id,
+  agentEnabled: true,
+  agentEndpointUrl: "",
+  agentApiKey: "",
+  agentSystemPrompt:
+    "أنت سند المساعد الذكي الحصري لمنصة ميمارت وسلوجان المنصة هو طلباتك أوامر تتحدث بلهجة سعودية بيضاء ودية ومباشرة بدون حشو وتساعد المستخدمين في صياغة الإعلانات وتصفح السوق بكل سلاسة عندما يطلب منك صياغة إعلان قم بصياغته بشكل منظم جداً ومقسم إلى أقسام واضحة تشمل عنوان الإعلان ثم تصنيف الخدمة ثم وصف الخدمة ثم ماذا ستحصل عليه ثم طريقة العمل مع العميل مع توجيه العميل في النهاية بعبارة واضحة لنشر الإعلان عند استلام منيو أو قائمة أطعمة تفهم أن المطعم أو الشركة هي المورد وصورته هي شعار المورد وتقوم بالبحث عن رابط صورة الشعار الحقيقي للمطعم عبر الإنترنت ووضعها كشعار للمورد كما تفهم أن الأصناف هي المنتجات وإذا كان الصنف له براند مستقل مثل بيبسي أو كوكاكولا تبحث عن مواصفات وصورة البراند وتدمجها في وصف المنتج اذكر دائماً للعميل عبارة طلباتك أوامر عند تقديم المساعدة والروابط المباشرة وساعده في العثور على أحدث الإعلانات أو إعلاناته الخاصة أو الترند فوراً وبشكل مختصر جداً وبدون أي تكلف",
+};
+
+if (overrideStr) {
+  try {
+    const override = JSON.parse(overrideStr);
+    const jwtSecret = getEnv(
+      Astro.locals,
+      "JWT_SECRET",
+      "fallback-admin-secret-key-123456",
+    );
+    const decryptedKey = override.agentApiKey
+      ? await decryptText(override.agentApiKey, jwtSecret)
+      : "";
+
+    currentConfig = {
+      name: override.name || currentConfig.name,
+      description: override.description || currentConfig.description,
+      keywords: override.keywords || currentConfig.keywords,
+      ogImage: override.ogImage || currentConfig.ogImage,
+      googleSiteVerification:
+        override.googleSiteVerification || currentConfig.googleSiteVerification,
+      googleAnalyticsId:
+        override.googleAnalyticsId || currentConfig.googleAnalyticsId,
+      facebookPixelId:
+        override.facebookPixelId || currentConfig.facebookPixelId,
+      agentEnabled:
+        override.agentEnabled !== undefined
+          ? Boolean(override.agentEnabled)
+          : true,
+      agentEndpointUrl: override.agentEndpointUrl || "",
+      agentApiKey: decryptedKey ? "••••••••" : "",
+      agentSystemPrompt: override.agentSystemPrompt || "",
+    };
+  } catch (e) {
+    console.error("Failed to parse site config override:", e);
+  }
+}
+
+const customRobots =
+  (await kvGet(Astro, "site_robots_txt")) ||
+  `User-agent: *\nDisallow:\nSitemap: ${Astro.url.origin}/sitemap.xml`;
+---
+
+<Layout
+  title={t["admin.settings.title"] + " | MeaMart Admin"}
+  description={t["admin.settings.desc"]}
+>
+  <PageHeader
+    title={t["admin.settings.title"]}
+    description={t["admin.settings.desc"]}
+  />
+
+  <Container class="pb-24 max-w-full">
+    <AdminNavTabs lang={lang} activeTab="settings" />
+
+    <!-- Settings Form Card -->
+    <form id="settings-form" class="space-y-8 w-full max-w-full mx-auto">
+      <!-- Section 1: SEO & Identity -->
+      <div
+        class="rounded-3xl border border-zinc-200/50 bg-white/40 p-8 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 shadow-sm"
+      >
+        <div class="flex items-center gap-3 mb-6">
+          <div
+            class="p-2 bg-primary/10 rounded-xl text-primary text-xs font-extrabold"
+          >
+            SEO
+          </div>
+          <h3 class="text-xl font-bold">{t["admin.settings.seo.title"]}</h3>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-sm font-bold mb-2"
+              >{t["admin.settings.field.sitename"]}</label
+            >
+            <input
+              type="text"
+              name="name"
+              value={currentConfig.name}
+              class="w-full px-4 py-3 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+              required
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold mb-2"
+              >{t["admin.settings.field.ogimage"]}</label
+            >
+            <input
+              type="text"
+              name="ogImage"
+              value={currentConfig.ogImage}
+              class="w-full px-4 py-3 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+            />
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-sm font-bold mb-2"
+              >{t["admin.settings.field.description"]}</label
+            >
+            <textarea
+              name="description"
+              rows="3"
+              class="w-full px-4 py-3 rounded-2x1 border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+              >{currentConfig.description}</textarea
+            >
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-sm font-bold mb-2"
+              >{t["admin.settings.field.keywords"]}</label
+            >
+            <input
+              type="text"
+              name="keywords"
+              value={currentConfig.keywords}
+              class="w-full px-4 py-3 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Analytics & Pixels -->
+      <div
+        class="rounded-3xl border border-zinc-200/50 bg-white/40 p-8 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 shadow-sm"
+      >
+        <div class="flex items-center gap-3 mb-6">
+          <div
+            class="p-2 bg-blue-500/10 rounded-xl text-blue-500 text-xs font-extrabold"
+          >
+            GA
+          </div>
+          <h3 class="text-xl font-bold">
+            {t["admin.settings.analytics.title"]}
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-sm font-bold mb-2"
+              >{t["admin.settings.field.ga4"]}</label
+            >
+            <input
+              type="text"
+              name="googleAnalyticsId"
+              placeholder="G-XXXXXXXXXX"
+              value={currentConfig.googleAnalyticsId}
+              class="w-full px-4 py-3 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold mb-2"
+              >{t["admin.settings.field.pixel"]}</label
+            >
+            <input
+              type="text"
+              name="facebookPixelId"
+              placeholder="16-digit ID"
+              value={currentConfig.facebookPixelId}
+              class="w-full px-4 py-3 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+            />
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-sm font-bold mb-2"
+              >{t["admin.settings.field.verification"]}</label
+            >
+            <input
+              type="text"
+              name="googleSiteVerification"
+              value={currentConfig.googleSiteVerification}
+              class="w-full px-4 py-3 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Indexing & Robots -->
+      <div
+        class="rounded-3xl border border-zinc-200/50 bg-white/40 p-8 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 shadow-sm"
+      >
+        <div class="flex items-center gap-3 mb-6">
+          <div
+            class="p-2 bg-emerald-500/10 rounded-xl text-emerald-500 text-xs font-extrabold"
+          >
+            TXT
+          </div>
+          <h3 class="text-xl font-bold">{t["admin.settings.robots.title"]}</h3>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold mb-2"
+            >{t["admin.settings.field.robots"]}</label
+          >
+          <textarea
+            name="robotsTxt"
+            rows="5"
+            class="w-full px-4 py-3 rounded-2x1 border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm"
+            style="direction: ltr;">{customRobots}</textarea
+          >
+        </div>
+      </div>
+
+      <!-- Section 4: AI Ad Assistant & MCP Server -->
+      <div
+        class="rounded-3xl border border-zinc-200/50 bg-white/40 p-8 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 shadow-sm"
+      >
+        <div class="flex items-center gap-3 mb-6">
+          <div class="p-2 bg-violet-500/10 rounded-xl text-violet-500">
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M9.813 15.904L9 21l-.813-5.096L3 15l5.096-.813L9 9l.813 5.187L15 15l-5.187.904zM18 10.5l-.5 2.5-2.5.5 2.5.5.5 2.5.5-2.5 2.5-.5-2.5-.5-.5-2.5z"
+              ></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold">{t["admin.settings.ai.title"]}</h3>
+        </div>
+
+        <div class="space-y-6">
+          <div class="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="agentEnabled"
+              name="agentEnabled"
+              value="true"
+              checked={currentConfig.agentEnabled}
+              class="w-5 h-5 rounded-md border-zinc-300 text-primary focus:ring-primary accent-primary"
+            />
+            <label
+              for="agentEnabled"
+              class="text-sm font-bold select-none cursor-pointer"
+              >{t["admin.settings.field.ai.enable"]}</label
+            >
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-bold mb-2"
+                >{t["admin.settings.field.ai.endpoint"]}</label
+              >
+              <input
+                type="text"
+                name="agentEndpointUrl"
+                placeholder="https://your-mcp-bridge.com/api/ad"
+                value={currentConfig.agentEndpointUrl}
+                class="w-full px-4 py-3 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold mb-2"
+                >{t["admin.settings.field.ai.apikey"]}</label
+              >
+              <input
+                type="password"
+                name="agentApiKey"
+                placeholder="API Key"
+                value={currentConfig.agentApiKey}
+                class="w-full px-4 py-3 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+              />
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-sm font-bold mb-2"
+                >{t["admin.settings.field.ai.prompt"]}</label
+              >
+              <textarea
+                name="agentSystemPrompt"
+                rows="3"
+                class="w-full px-4 py-3 rounded-2x1 border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+                >{currentConfig.agentSystemPrompt}</textarea
+              >
+            </div>
+          </div>
+
+          {/* Sanad Log Monitoring Dashboard */}
+          <div class="mt-8 border-t border-zinc-200/30 pt-6 space-y-4">
+            <h4
+              class="text-sm font-bold text-zinc-800 dark:text-zinc-200 flex justify-between items-center"
+            >
+              <span>{t["admin.settings.ai.logs.title"]}</span>
+              <button
+                type="button"
+                id="refresh-logs-btn"
+                class="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs transition-all font-semibold"
+              >
+                {t["admin.settings.ai.logs.refresh"]}
+              </button>
+            </h4>
+
+            <div
+              id="sanad-logs-list"
+              class="space-y-3 max-h-80 overflow-y-auto pr-2"
+            >
+              <div class="text-xs text-zinc-500 py-4 text-center">
+                {t["admin.settings.ai.logs.loading"]}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 5: Email Settings, Notification Rules & JSON-LD AI Email Templates -->
+      <div
+        class="rounded-3xl border border-zinc-200/50 bg-white/40 p-8 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 shadow-sm"
+      >
+        <div class="flex items-center gap-3 mb-6">
+          <div class="p-2 bg-emerald-500/10 rounded-xl text-emerald-600">
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+              ></path>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-xl font-bold">
+              إعدادات البريد والتنبيهات ونماذج JSON-LD للذكاء الاصطناعي
+            </h3>
+            <p class="text-xs text-zinc-500 mt-0.5">
+              إدارة الإشعارات التلقائية وتنسيق النماذج لتفهمها محركات الذكاء
+              الاصطناعي ومساعد بريد Gmail و Apple Mail
+            </p>
+          </div>
+        </div>
+
+        <AdminEmailManagerClient client:load />
+      </div>
+
+      <!-- Section 6: Security & 2FA via WhatsApp -->
+      <div
+        class="rounded-3xl border border-zinc-200/50 bg-white/40 p-8 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 shadow-sm"
+      >
+        <div class="flex items-center gap-3 mb-6">
+          <div class="p-2 bg-emerald-500/10 rounded-xl text-emerald-600">
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              ></path>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-xl font-bold">الأمان والتحقق بخطوتين (2FA)</h3>
+            <p class="text-xs text-zinc-500 mt-0.5">
+              تفعيل حماية الحساب عبر إرسال رمز أمان لمرة واحدة OTP إلى واتساب
+            </p>
+          </div>
+        </div>
+
+        <WhatsApp2FASettings
+          client:load
+          userId={session.id}
+          initialEnabled={userProfile?.two_factor_enabled || false}
+          initialPhone={userProfile?.two_factor_whatsapp_number || ""}
+        />
+      </div>
+
+      <!-- Feedback Banner -->
+      <div
+        id="status-banner"
+        class="hidden rounded-full p-4 text-sm font-semibold transition-all"
+      >
+      </div>
+
+      <!-- Actions -->
+      <div class="flex justify-end gap-4">
+        <button
+          type="submit"
+          id="save-btn"
+          data-label={t["admin.settings.save"]}
+          data-saved={t["admin.settings.saved"]}
+          data-error={t["admin.settings.save.error"]}
+          data-fail={t["admin.settings.save.fail"]}
+          class="px-8 py-3.5 rounded-full bg-primary hover:bg-primary/95 text-white font-bold shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
+        >
+          {t["admin.settings.save"]}
+        </button>
+      </div>
+    </form>
+  </Container>
+</Layout>
+
+<script
+  data-logs-empty={t["admin.settings.ai.logs.empty"]}
+  data-logs-error={t["admin.settings.ai.logs.error"]}
+  data-logs-prompt={t["admin.settings.ai.logs.prompt"]}
+  data-logs-reply={t["admin.settings.ai.logs.reply"]}
+>
+  const form = document.getElementById("settings-form");
+  const saveBtn = document.getElementById("save-btn");
+  const statusBanner = document.getElementById("status-banner");
+  const scriptEl = document.currentScript;
+
+  const logsEmpty = scriptEl?.dataset.logsEmpty ?? "No operations logged yet.";
+  const logsError = scriptEl?.dataset.logsError ?? "Failed to load logs";
+  const logsPrompt = scriptEl?.dataset.logsPrompt ?? "Prompt:";
+  const logsReply = scriptEl?.dataset.logsReply ?? "Reply:";
+
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (
+      !(form instanceof HTMLFormElement) ||
+      !(saveBtn instanceof HTMLButtonElement) ||
+      !(statusBanner instanceof HTMLDivElement)
+    )
+      return;
+
+    const labelSave = saveBtn.dataset.label ?? "Save";
+    const labelSaved = saveBtn.dataset.saved ?? "Saved!";
+    const labelError = saveBtn.dataset.error ?? "Error saving";
+    const labelFail = saveBtn.dataset.fail ?? "Connection failed";
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = "...";
+
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    const agentCheckbox = form.querySelector('[name="agentEnabled"]');
+    data.agentEnabled = String(
+      agentCheckbox instanceof HTMLInputElement ? agentCheckbox.checked : false,
+    );
+
+    try {
+      const res = await fetch("/api/admin/save-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        statusBanner.className =
+          "rounded-full p-4 text-sm font-semibold transition-all bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
+        statusBanner.textContent = labelSaved;
+        statusBanner.classList.remove("hidden");
+
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        throw new Error(result.error || labelError);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : labelFail;
+      statusBanner.className =
+        "rounded-full p-4 text-sm font-semibold transition-all bg-red-500/10 text-red-500 border border-red-500/20";
+      statusBanner.textContent = message;
+      statusBanner.classList.remove("hidden");
+      saveBtn.disabled = false;
+      saveBtn.textContent = labelSave;
+    }
+  });
+
+  const logsList = document.getElementById("sanad-logs-list");
+  const refreshLogsBtn = document.getElementById("refresh-logs-btn");
+
+  async function loadSanadLogs() {
+    if (!(logsList instanceof HTMLDivElement)) return;
+
+    try {
+      const res = await fetch("/api/admin/sanad-logs");
+      const data = await res.json();
+
+      if (data.success && data.logs) {
+        if (data.logs.length === 0) {
+          logsList.innerHTML = `<div class="text-xs text-zinc-500 py-4 text-center">${logsEmpty}</div>`;
+          return;
+        }
+
+        logsList.innerHTML = data.logs
+          .map((log) => {
+            const isError = log.status === "error";
+            const isFallback = log.status === "fallback";
+            const statusClass = isError
+              ? "bg-red-500/10 text-red-500 border-red-500/20"
+              : isFallback
+                ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                : "bg-green-500/10 text-green-500 border-green-500/20";
+
+            const locale = document.documentElement.lang || "en";
+            const formattedTime = new Date(log.timestamp).toLocaleTimeString(
+              locale,
+              { hour: "2-digit", minute: "2-digit", second: "2-digit" },
+            );
+
+            return `
+            <div class="p-4 rounded-full border border-zinc-200/50 dark:border-zinc-800/50 bg-white/30 dark:bg-zinc-950/20 text-xs space-y-2">
+              <div class="flex justify-between items-center">
+                <span class="px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200/20">${log.action}</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-semibold text-zinc-400">${formattedTime}</span>
+                  <span class="px-2 py-0.5 rounded-full font-bold text-[10px] border ${statusClass}">${log.status}</span>
+                </div>
+              </div>
+              <div class="space-y-1">
+                <p class="font-semibold text-zinc-500 dark:text-zinc-400"><strong class="text-zinc-600 dark:text-zinc-300">${logsPrompt}</strong> ${log.prompt}</p>
+                <p class="font-semibold text-zinc-500 dark:text-zinc-400"><strong class="text-zinc-600 dark:text-zinc-300">${logsReply}</strong> ${log.response}</p>
+              </div>
+            </div>
+          `;
+          })
+          .join("");
+      }
+    } catch (e) {
+      console.error(e);
+      logsList.innerHTML = `<div class="text-xs text-red-500 py-4 text-center">${logsError}</div>`;
+    }
+  }
+
+  refreshLogsBtn?.addEventListener("click", loadSanadLogs);
+  loadSanadLogs();
+</script>

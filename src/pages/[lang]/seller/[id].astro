@@ -1,0 +1,347 @@
+---
+import Layout from '~/layouts/Layout.astro';
+import Container from '~/components/ui/Container.astro';
+import AdCard from '~/components/ui/AdCard.astro';
+import PageHeader from '~/components/layout/PageHeader.astro';
+import { User, MessageSquare, MapPin, Instagram, Facebook, Send, Globe, ExternalLink, CheckCircle } from 'lucide-react';
+import { categoriesMap } from '~/utils/categories';
+import { resolveCity } from '~/utils/cities';
+import { supabaseAdminClient } from '~/utils/supabase';
+import { siteConfig } from '~/site.config';
+import { useTranslations } from '~/i18n/utils';
+export const prerender = false;
+
+const { lang = 'ar', id } = Astro.params as { lang: "ar" | "en", id: string };
+const isAr = lang === 'ar';
+const t = useTranslations(lang);
+
+// Determine the sellerId and phoneKey based on the `id` param
+let sellerId: string | null = null;
+let phoneKey = '';
+
+const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+const isShortCode = id.startsWith('s-');
+
+if (isUUID) {
+  sellerId = id;
+} else if (isShortCode) {
+  try {
+    const { data: qrLink } = await supabaseAdminClient
+      .from('qr_links')
+      .select('user_id')
+      .eq('short_code', id)
+      .eq('entity_type', 'seller')
+      .maybeSingle();
+    if (qrLink?.user_id) {
+      sellerId = qrLink.user_id;
+    }
+  } catch(e) {
+    console.error('Failed to resolve short code:', e);
+  }
+} else {
+  // Legacy phone number fallback
+  const cleanPhone = id?.replace(/[^0-9]/g, '') || '';
+  phoneKey = cleanPhone.slice(-9);
+}
+
+const normalizePhone = (p: any) => String(p || '').replace(/[^0-9]/g, '').slice(-9);
+
+// Fetch ads from Supabase
+let rawAds: any[] = [];
+try {
+  let query = supabaseAdminClient
+    .from('ads')
+    .select('*')
+    .order('created_at', { ascending: false });
+    
+  if (sellerId) {
+    query = query.eq('user_id', sellerId);
+  }
+  
+  const { data } = await query;
+  rawAds = data || [];
+} catch (e) {
+  console.error('Failed to fetch ads from Supabase:', e);
+}
+
+// Category id -> slug map
+let categorySlugById = new Map<string, string>();
+try {
+  const { data: cats } = await supabaseAdminClient.from('categories').select('id, slug');
+  categorySlugById = new Map((cats || []).map((c: any) => [c.id, c.slug]));
+} catch (e) {
+  console.error('Failed to fetch categories from Supabase:', e);
+}
+
+const ads = rawAds
+  .filter((row: any) => sellerId ? true : (phoneKey && normalizePhone(row.contact_phone) === phoneKey))
+  .map((row: any) => ({
+    id: String(row.id),
+    sellerId: row.seller_id || row.user_id || null,
+    data: {
+      listing_title: row.title || 'Untitled',
+      listing_description: row.description || '',
+      listing_price: Number(row.price) || 0,
+      listing_currency: row.currency || 'SAR',
+      listing_city: row.city || '',
+      categoryKey: categorySlugById.get(row.category_id) || 'used-items',
+      image: Array.isArray(row.images) && row.images[0] ? row.images[0] : '/logo.svg',
+      contact_phone: row.contact_phone || '',
+      contact_name: row.contact_name || '',
+    }
+  }));
+
+const sellerAd = ads.length > 0 ? ads[0] : null;
+
+// Seller profile from Supabase
+let profile: any = null;
+if (sellerAd?.sellerId) {
+  try {
+    const { data } = await supabaseAdminClient
+      .from('profiles')
+      .select('*')
+      .eq('id', sellerAd.sellerId)
+      .maybeSingle();
+    profile = data;
+  } catch (e) {
+    console.error('Failed to fetch seller profile from Supabase:', e);
+  }
+}
+
+const sellerName = profile?.name || sellerAd?.data.contact_name || t['gen.lt._phone_.1'];
+const cityData = resolveCity(sellerAd?.data.listing_city || '');
+const sellerCity = (isAr ? cityData.ar : cityData.en);
+
+// Seller profile extras
+const metadata = profile?.metadata || {};
+const sellerAvatar = profile?.avatar || metadata.seller_avatar || '';
+const sellerBanner = profile?.banner || metadata.seller_banner || '';
+const sellerInstagram = profile?.instagram || metadata.seller_instagram || '';
+const sellerFacebook = profile?.facebook || metadata.seller_facebook || '';
+const sellerTelegram = profile?.telegram || metadata.seller_telegram || '';
+const sellerWebsite = profile?.website || metadata.seller_website || '';
+const sellerGmaps = profile?.gmaps || metadata.seller_gmaps || '';
+
+const whatsappBotNumber = siteConfig.chatbot.phoneNumber;
+const whatsappUrl = `https://wa.me/${whatsappBotNumber}?text=${encodeURIComponent(
+  t['gen.lt._phone_.2']
+)}`;
+
+import { generateCustomQRCode } from '~/utils/qrcode';
+const sellerTrackingUrl = `${Astro.url.origin}/r/seller-${profile?.username || sellerId || phoneKey}`;
+let sellerQrSvg = '';
+try {
+  let customSellerQrOptions: any = null;
+  const targetUserId = profile?.id || sellerId || '';
+  let qrQuery = supabaseAdminClient
+    .from('qr_links')
+    .select('qr_options')
+    .eq('entity_type', 'seller');
+    
+  if (targetUserId) {
+    qrQuery = qrQuery.eq('user_id', targetUserId);
+  } else {
+    qrQuery = qrQuery.in('entity_id', [profile?.username || '', phoneKey || '']);
+  }
+  
+  const { data: qrLinks } = await qrQuery
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (qrLinks && qrLinks.qr_options) {
+    customSellerQrOptions = qrLinks.qr_options;
+  }
+
+  sellerQrSvg = await generateCustomQRCode({
+    text: sellerTrackingUrl,
+    qr_options: customSellerQrOptions,
+    gradient: { start: '#10b981', end: '#059669' },
+    logo: 'whatsapp'
+  });
+} catch (e) {
+  console.warn('Failed to generate seller QR code:', e);
+}
+---
+
+<Layout 
+  title={`${t['gen.lt._phone_.3']} ${sellerName} | MeaMart`} 
+  description={t['gen.lt._phone_.4']}
+>
+
+  <Container class="pt-32 pb-24">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      <!-- Left Column: Seller Profile Card -->
+      <div class="lg:col-span-4">
+        <div class="sticky top-32 rounded-3xl border border-zinc-200/50 bg-white/60 shadow-md backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/60 overflow-hidden">
+          
+          <!-- Banner -->
+          <div class="relative h-32 bg-linear-to-r from-primary/30 to-violet-500/30">
+            {sellerBanner && (
+              <img src={sellerBanner} alt="seller banner" class="w-full h-full object-cover" />
+            )}
+          </div>
+
+          <div class="px-6 pb-6">
+            <!-- Avatar overlapping banner -->
+            <div class="relative -mt-12 mb-4 flex items-end gap-3">
+              <div class="h-24 w-24 rounded-3xl border-4 border-white dark:border-zinc-900 overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-lg shrink-0">
+                {sellerAvatar 
+                  ? <img src={sellerAvatar} alt={sellerName} class="h-full w-full object-cover" />
+                  : <div class="flex h-full w-full items-center justify-center">
+                      <User className="h-10 w-10 text-zinc-400" />
+                    </div>
+                }
+              </div>
+            </div>
+
+            <div class="flex items-start justify-between mb-1">
+              <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+                {sellerName}
+              </h2>
+              <span class="flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-full shrink-0">
+                <CheckCircle className="h-3 w-3" />
+                {t['gen.lt._phone_.5']}
+              </span>
+            </div>
+
+            {sellerCity && (
+              <p class="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+                <MapPin className="h-3 w-3" />
+                {sellerCity}
+              </p>
+            )}
+
+            <!-- Stats row -->
+            <div class="flex items-center justify-between border-t border-b border-zinc-100 py-4 mb-4 dark:border-zinc-800">
+              <div class="text-center">
+                <span class="block text-2xl font-extrabold text-primary">{ads.length}</span>
+                <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold">
+                  {t['gen.lt._phone_.6']}
+                </span>
+              </div>
+              <div class="text-center">
+                <span class="block text-2xl font-extrabold text-blue-500">{profile?.views_count || Math.floor(Math.random() * 500) + 10}</span>
+                <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold">
+                  {isAr ? 'مشاهدة' : 'Views'}
+                </span>
+              </div>
+              <div class="text-center">
+                <span class="block text-2xl font-extrabold text-emerald-500">100%</span>
+                <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold">
+                  {t['gen.lt._phone_.7']}
+                </span>
+              </div>
+            </div>
+
+            <!-- Social links -->
+            {(sellerInstagram || sellerFacebook || sellerTelegram || sellerWebsite) && (
+              <div class="flex flex-wrap gap-2 mb-4">
+                {sellerInstagram && (
+                  <a href={`https://instagram.com/${sellerInstagram.replace('@','')}`} target="_blank" rel="noopener noreferrer"
+                    class="flex items-center gap-1.5 rounded-xl bg-linear-to-r from-purple-500 to-pink-500 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition">
+                    <Instagram className="h-3.5 w-3.5" />
+                    <span>Instagram</span>
+                  </a>
+                )}
+                {sellerFacebook && (
+                  <a href={`https://facebook.com/${sellerFacebook.replace('@','')}`} target="_blank" rel="noopener noreferrer"
+                    class="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition">
+                    <Facebook className="h-3.5 w-3.5" />
+                    <span>Facebook</span>
+                  </a>
+                )}
+                {sellerTelegram && (
+                  <a href={`https://t.me/${sellerTelegram.replace('@','')}`} target="_blank" rel="noopener noreferrer"
+                    class="flex items-center gap-1.5 rounded-xl bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition">
+                    <Send className="h-3.5 w-3.5" />
+                    <span>Telegram</span>
+                  </a>
+                )}
+                {sellerWebsite && (
+                  <a href={sellerWebsite.startsWith('http') ? sellerWebsite : `https://${sellerWebsite}`} target="_blank" rel="noopener noreferrer"
+                    class="flex items-center gap-1.5 rounded-xl bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition dark:bg-zinc-700">
+                    <Globe className="h-3.5 w-3.5" />
+                    <span>{t['gen.lt._phone_.8']}</span>
+                  </a>
+                )}
+              </div>
+            )}
+
+            <!-- Google Maps link -->
+            {sellerGmaps && (
+              <a href={sellerGmaps} target="_blank" rel="noopener noreferrer"
+                class="flex items-center gap-2 w-full mb-3 rounded-full border border-zinc-200 py-2.5 px-4 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 transition dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                <MapPin className="h-4 w-4 text-red-500" />
+                <span>{t['gen.lt._phone_.9']}</span>
+                <ExternalLink className="h-3.5 w-3.5 ms-auto opacity-50" />
+              </a>
+            )}
+
+            <!-- WhatsApp CTA -->
+            <a 
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex items-center justify-center gap-2.5 w-full rounded-full bg-emerald-500 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-emerald-600 active:scale-95"
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span>{t['gen.lt._phone_.10']}</span>
+            </a>
+
+            <!-- QR Code display -->
+            {sellerQrSvg && (
+              <div class="mt-6 mb-2 flex flex-col items-center justify-center p-4 rounded-3xl border border-zinc-200/50 bg-white shadow-sm dark:border-zinc-800/50 dark:bg-zinc-900/50">
+                <span class="text-xs font-bold text-zinc-500 mb-3">{isAr ? 'باركود المتجر' : 'Store QR Code'}</span>
+                <div class="w-32 h-32" set:html={sellerQrSvg}></div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Active ads listings -->
+      <div class="lg:col-span-8 space-y-6">
+        <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-50 border-b border-zinc-100 pb-3 dark:border-zinc-800">
+          {t['gen.lt._phone_.11']}
+        </h3>
+
+        {ads.length === 0 ? (
+          <div class="text-center py-20 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-700">
+            <p class="text-lg text-zinc-500 dark:text-zinc-400">
+              {t['gen.lt._phone_.12']}
+            </p>
+          </div>
+        ) : (
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 pb-2 px-1">
+            {ads.map((ad) => (
+              (() => {
+                const adCategory = (isAr ? categoriesMap[ad.data.categoryKey]?.ar || ad.data.categoryKey : categoriesMap[ad.data.categoryKey]?.en || ad.data.categoryKey);
+                const adCityData = resolveCity(ad.data.listing_city);
+                const adCity = (isAr ? adCityData.ar : adCityData.en);
+
+                return (
+              <AdCard 
+                title={ad.data.listing_title}
+                price={ad.data.listing_price}
+                currency={ad.data.listing_currency || 'SAR'}
+                category={adCategory}
+                city={adCity}
+                image={ad.data.image}
+                sellerPhone={ad.data.contact_phone}
+                slug={`/${lang}/ads/${ad.id}`}
+                lang={lang}
+                description={ad.data.listing_description}
+              />
+                );
+              })()
+            ))}
+          </div>
+        )}
+      </div>
+
+    </div>
+  </Container>
+</Layout>
+

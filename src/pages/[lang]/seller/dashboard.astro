@@ -1,0 +1,125 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import SellerDashboard from "~/components/seller/SellerDashboard.astro";
+import { getMeamartSession } from "~/utils/session";
+import { defaultLang } from "~/i18n/ui";
+import { isRtl, useTranslations } from "~/i18n/utils";
+
+export const prerender = false;
+
+const { lang = defaultLang } = Astro.params;
+const rtl = isRtl(lang);
+
+// Try to get session from multiple sources
+let session = Astro.locals.userSession;
+
+// Fallback: check URL query param (from OAuth callback)
+if (!session) {
+  const url = new URL(Astro.request.url);
+  const sessionParam = url.searchParams.get("session");
+  if (sessionParam) {
+    try {
+      session = JSON.parse(decodeURIComponent(sessionParam));
+      const siteUrl = Astro.request.url;
+      const isSecure = siteUrl.startsWith("https");
+      Astro.cookies.set("meamart_session", JSON.stringify(session), {
+        path: "/",
+        httpOnly: false,
+        maxAge: 30 * 24 * 60 * 60,
+        secure: isSecure,
+        sameSite: "lax",
+      });
+      console.log(
+        "[Dashboard] ✅ Session from URL param — saved cookie & redirecting",
+      );
+      return Astro.redirect(`/${lang}/seller/dashboard`);
+    } catch (e) {
+      console.error("[Dashboard] Failed to parse session from URL:", e);
+    }
+  }
+}
+
+// Fallback: check cookie directly
+if (!session) {
+  session = await getMeamartSession(Astro);
+}
+
+if (!session) {
+  console.log("[Dashboard] ❌ No session - redirecting to login");
+  return Astro.redirect(`/${lang}/login`);
+}
+
+const translations = useTranslations(lang);
+const pageTitle = String(translations["seller.dashboard.page.title"] || "");
+const pageDesc = String(translations["seller.dashboard.page.desc"] || "");
+---
+
+<Layout title={pageTitle} description={pageDesc}>
+  <SellerDashboard lang={lang} rtl={rtl} server:defer>
+    <!-- Skeleton Dashboard Fallback -->
+    <div
+      slot="fallback"
+      class="min-h-screen bg-zinc-50 dark:bg-zinc-950 animate-pulse"
+    >
+      <!-- Header skeleton -->
+      <div
+        class="h-44 bg-zinc-200/80 dark:bg-zinc-900/80 border-b border-zinc-200 dark:border-zinc-800"
+      >
+      </div>
+
+      <div class="max-w-7xl mx-auto px-6 py-12 space-y-8">
+        <!-- Profile skeleton card -->
+        <div
+          class="rounded-3xl border border-zinc-200/50 bg-white/40 p-6 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40 flex flex-col md:flex-row items-center justify-between gap-6"
+        >
+          <div class="flex items-center gap-4 w-full sm:w-auto">
+            <div
+              class="h-16 w-16 rounded-full bg-zinc-300 dark:bg-zinc-800 shrink-0"
+            >
+            </div>
+            <div class="space-y-2 flex-1 sm:flex-initial">
+              <div class="h-5 bg-zinc-300 dark:bg-zinc-800 rounded-md w-32">
+              </div>
+              <div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md w-48">
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-3 w-full sm:w-auto">
+            <div class="h-10 bg-zinc-300 dark:bg-zinc-800 rounded-full w-24">
+            </div>
+            <div class="h-10 bg-zinc-300 dark:bg-zinc-800 rounded-full w-24">
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats skeleton cards -->
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div class="h-28 bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl">
+          </div>
+          <div class="h-28 bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl">
+          </div>
+          <div class="h-28 bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl">
+          </div>
+        </div>
+
+        <!-- Tabs skeleton -->
+        <div
+          class="h-12 bg-zinc-200/80 dark:bg-zinc-900/80 rounded-full w-full sm:w-80"
+        >
+        </div>
+
+        <!-- Grid list skeleton -->
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div class="h-32 bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl">
+          </div>
+          <div class="h-32 bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl">
+          </div>
+          <div class="h-32 bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl">
+          </div>
+          <div class="h-32 bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl">
+          </div>
+        </div>
+      </div>
+    </div>
+  </SellerDashboard>
+</Layout>

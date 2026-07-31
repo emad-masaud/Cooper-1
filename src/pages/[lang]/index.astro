@@ -1,49 +1,124 @@
 ---
-export const prerender = true;
-import { languages, defaultLang } from '~/i18n/ui';
-import Layout from '~/layouts/Layout.astro';
-import Schema from '~/components/layout/Schema.astro';
-import HomeContent from '~/components/sections/HomeContent.astro';
+import { languages } from "~/i18n/ui";
+import { useTranslations } from "~/i18n/utils";
+import Layout from "~/layouts/Layout.astro";
+import Schema from "~/components/layout/Schema.astro";
+import Hero from "~/components/sections/Hero.astro";
+import HomeCategories from "~/components/sections/home/HomeCategories.astro";
+import HomeFeaturedAds from "~/components/sections/home/HomeFeaturedAds.astro";
+import HomePopularCategories from "~/components/sections/home/HomePopularCategories.astro";
+import HomeCustomFields from "~/components/sections/home/HomeCustomFields.astro";
+import HomeLocations from "~/components/sections/home/HomeLocations.astro";
+import AdBanner from '~/components/ui/AdBanner.astro';
+import Container from '~/components/ui/Container.astro';
 
-export async function getStaticPaths() {
-  return Object.keys(languages).map((lang) => ({ params: { lang } }));
-}
+export const prerender = false;
 
-const { lang = defaultLang } = Astro.params;
+const { lang } = Astro.params;
+const t = useTranslations(lang as keyof typeof languages);
 ---
 
-<Layout title="MeaMart | Engineered for the Unknown" description="MeaMart -The ultimate Astro starter Boilerplate for your next project. Made by Gladtek">
-    <Schema item={{
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            "name": "Cooper",
-            "url": Astro.site,
-            "potentialAction": {
-                "@type": "SearchAction",
-                "target": {
-                    "@type": "EntryPoint",
-                    "urlTemplate": `${Astro.site}/search?q={search_term_string}`
-                },
-                "query-input": "required name=search_term_string"
-            }
-        }} />
-    <Schema item={{
-            "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            "name": "Cooper",
-            "operatingSystem": "Web",
-            "applicationCategory": "DeveloperApplication",
-            "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "USD"
-            },
-            "aggregateRating": {
-                "@type": "AggregateRating",
-                "ratingValue": "4.9",
-                "ratingCount": "120"
-            }
-        }} />
+<Layout
+  title={t['hero.title']}
+  description={t['hero.subtitle']}
+>
+  <Schema item={{
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": t['brand.name'],
+    "url": Astro.url.href
+  }} />
 
-    <HomeContent lang={lang} heroVariant="centered" />
+  <!-- Hero Section -->
+  <Hero 
+    lang={lang}
+    primaryCta={{ text: t['hero.getStarted'], href: `/${lang}/ads/create` }}
+  />
+
+  <!-- Categories Slider -->
+  <HomeCategories lang={lang} />
+
+  <!-- بنر إعلاني تحت سلايدر الأقسام -->
+  <Container class="py-4">
+    <AdBanner position="belowCategories" lang={lang} />
+  </Container>
+
+  <!-- Featured Ads Carousel (Server Island with skeleton fallback) -->
+  <HomeFeaturedAds server:defer lang={lang}>
+    <div slot="fallback" class="py-12 bg-muted/30 animate-pulse">
+      <div class="container mx-auto px-4">
+        <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div class="h-8 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-48"></div>
+          <div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-20"></div>
+        </div>
+        <div class="flex gap-4 overflow-x-auto pt-2 pb-4">
+          <div class="min-w-[320px] h-[340px] bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+          <div class="min-w-[320px] h-[340px] bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+          <div class="min-w-[320px] h-[340px] bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+        </div>
+      </div>
+    </div>
+  </HomeFeaturedAds>
+
+  <!-- بنر إعلاني بعد سلايدر الإعلانات المميزة -->
+  <Container class="py-4">
+    <AdBanner position="afterSliders" lang={lang} />
+  </Container>
+
+  <!-- Most Requested Category Ads (Server Island with skeleton fallback) -->
+  <HomePopularCategories server:defer lang={lang}>
+    <div slot="fallback" class="py-12 bg-background animate-pulse">
+      <div class="container mx-auto px-4">
+        <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div class="h-8 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-56"></div>
+          <div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-20"></div>
+        </div>
+        <div class="flex gap-4 overflow-x-auto pt-2 pb-4">
+          <div class="min-w-[320px] h-[340px] bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+          <div class="min-w-[320px] h-[340px] bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+          <div class="min-w-[320px] h-[340px] bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+        </div>
+      </div>
+    </div>
+  </HomePopularCategories>
+
+  <!-- Custom Field Highlights (Server Island with skeleton fallback) -->
+  <HomeCustomFields server:defer lang={lang}>
+    <div slot="fallback" class="py-12 bg-background animate-pulse">
+      <div class="container mx-auto px-4">
+        <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div class="h-8 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-56"></div>
+          <div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-20"></div>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div class="h-28 bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+          <div class="h-28 bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+          <div class="h-28 bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+          <div class="h-28 bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+        </div>
+      </div>
+    </div>
+  </HomeCustomFields>
+
+  <!-- بنر إعلاني إضافي بعد الحقول المخصصة -->
+  <Container class="py-4">
+    <AdBanner position="afterSliders" lang={lang} />
+  </Container>
+
+  <!-- Top Location Ads (Server Island with skeleton fallback) -->
+  <HomeLocations server:defer lang={lang}>
+    <div slot="fallback" class="py-12 bg-muted/30 animate-pulse">
+      <div class="container mx-auto px-4">
+        <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div class="h-8 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-64"></div>
+          <div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-20"></div>
+        </div>
+        <div class="flex gap-4 overflow-x-auto pt-2 pb-4">
+          <div class="min-w-[320px] h-[340px] bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+          <div class="min-w-[320px] h-[340px] bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+          <div class="min-w-[320px] h-[340px] bg-zinc-200/60 dark:bg-zinc-800/60 rounded-3xl"></div>
+        </div>
+      </div>
+    </div>
+  </HomeLocations>
 </Layout>

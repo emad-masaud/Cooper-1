@@ -1,0 +1,108 @@
+---
+export const prerender = false;
+import Layout from '~/layouts/Layout.astro';
+import { getLangFromUrl, useTranslations } from '~/i18n/utils';
+import { erpnext } from '~/lib/erpnext/client';
+import { LogIn } from 'lucide-react';
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const data = await Astro.request.formData();
+    const usr = data.get('email')?.toString();
+    const pwd = data.get('password')?.toString();
+    
+    if (!usr || !pwd) {
+      error = 'الرجاء إدخال البريد الإلكتروني وكلمة المرور';
+    } else {
+      // Forward the login request to Frappe
+      const response = await fetch(`${import.meta.env.PUBLIC_ERPNEXT_URL || 'http://139.59.111.91:8080'}/api/method/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usr, pwd })
+      });
+      
+      if (response.ok) {
+        // Extract the sid cookie from Frappe's Set-Cookie header
+        const setCookieHeaders = response.headers.get('set-cookie');
+        if (setCookieHeaders) {
+          // Astro's Astro.response.headers.append is tricky, let's just set the cookie manually
+          const cookies = setCookieHeaders.split(',').map(c => c.trim());
+          for (const cookieStr of cookies) {
+            if (cookieStr.startsWith('sid=')) {
+              const sid = cookieStr.split(';')[0].split('=')[1];
+              Astro.cookies.set('sid', sid, { path: '/', httpOnly: true, maxAge: 60 * 60 * 24 * 7 }); // 7 days
+            }
+          }
+        }
+        
+        // Redirect to post page
+        return Astro.redirect(`/${lang}/post`);
+      } else {
+        error = 'بيانات الدخول غير صحيحة';
+      }
+    }
+  } catch (e) {
+    error = 'حدث خطأ أثناء محاولة تسجيل الدخول';
+  }
+}
+
+// Redirect if already logged in
+if (Astro.cookies.has('sid')) {
+  return Astro.redirect(`/${lang}/post`);
+}
+---
+
+<Layout title="تسجيل الدخول - ميمارت">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-900 py-16 px-6 flex flex-col justify-center sm:py-24">
+    <div class="max-w-md w-full mx-auto bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700 p-8 sm:p-10">
+      
+      <div class="text-center mb-10">
+        <div class="w-16 h-16 bg-primary-100 text-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+          <LogIn size={32} />
+        </div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white mb-2">تسجيل الدخول</h1>
+        <p class="text-slate-500">مرحباً بك مجدداً في ميمارت</p>
+      </div>
+
+      {error && (
+        <div class="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-sm font-medium border border-red-100 text-center">
+          {error}
+        </div>
+      )}
+
+      <form method="POST" class="space-y-6">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">البريد الإلكتروني</label>
+          <input 
+            type="email" 
+            name="email"
+            required
+            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-primary-500 rounded-xl px-4 py-3 outline-none text-slate-900 dark:text-white font-medium transition-colors"
+            placeholder="name@example.com"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">كلمة المرور</label>
+          <input 
+            type="password" 
+            name="password"
+            required
+            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-primary-500 rounded-xl px-4 py-3 outline-none text-slate-900 dark:text-white font-medium transition-colors"
+            placeholder="••••••••"
+          />
+        </div>
+
+        <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white rounded-xl py-4 font-bold transition-colors shadow-lg shadow-primary-600/20">
+          دخول
+        </button>
+      </form>
+
+    </div>
+  </div>
+</Layout>

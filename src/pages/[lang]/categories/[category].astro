@@ -1,0 +1,41 @@
+---
+import { categoriesStructure } from '~/utils/categories';
+import { languages } from '~/i18n/ui';
+
+export function getStaticPaths() {
+  const paths: any[] = [];
+  
+  Object.keys(languages).forEach((lang) => {
+    // Add paths for parent categories
+    categoriesStructure.forEach((group) => {
+      paths.push({
+        params: { lang, category: group.key }
+      });
+      
+      // Add paths for subcategories
+      group.children.forEach((child) => {
+        paths.push({
+          params: { lang, category: child.key }
+        });
+      });
+    });
+  });
+  
+  return paths;
+}
+
+const { lang, category } = Astro.params;
+---
+<!DOCTYPE html>
+<html lang={lang}>
+<head>
+  <meta charset="utf-8" />
+  <title>Redirecting...</title>
+  <meta http-equiv="refresh" content={`0;url=/${lang}/ads?category=${category}`} />
+</head>
+<body>
+  <script is:inline define:vars={{ lang, category }}>
+    window.location.href = `/${lang}/ads?category=${category}`;
+  </script>
+</body>
+</html>

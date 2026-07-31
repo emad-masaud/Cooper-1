@@ -1,0 +1,263 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import AdminNavTabs from "~/components/admin/AdminNavTabs.astro";
+import { parseAdminSession } from "~/utils/session";
+import { createSupabaseAdminServerClient } from "~/utils/supabase";
+import { defaultLang } from "~/i18n/ui";
+import { useTranslations } from "~/i18n/utils";
+export const prerender = false;
+
+const { lang = defaultLang } = Astro.params;
+const t = useTranslations(lang);
+
+const session = await parseAdminSession(Astro.cookies, Astro.locals);
+if (!session || !session.is_admin) {
+  return Astro.redirect(`/${lang}/admin-login`);
+}
+
+let allAds: any[] = [];
+let allUsers: any[] = [];
+
+try {
+  const supabase = createSupabaseAdminServerClient({ locals: Astro.locals });
+  const { data: sbAds } = await supabase.from("ads").select("*");
+  const { data: sbUsers } = await supabase.from("profiles").select("*");
+
+  if (sbAds) {
+    allAds = sbAds.map((ad) => ({
+      id: ad.id,
+      title: ad.title || "",
+      price: ad.price || 0,
+      currency: ad.currency || "SAR",
+      adData: {
+        listing_status: ad.status || "active",
+      },
+    }));
+  }
+  if (sbUsers) {
+    allUsers = sbUsers;
+  }
+} catch (e) {
+  console.error("Failed to fetch Supabase admin data:", e);
+}
+
+const activeAdsCount = allAds.filter(
+  (ad) => ad.adData?.listing_status === "active",
+).length;
+const expiredAdsCount = allAds.filter(
+  (ad) => ad.adData?.listing_status === "expired",
+).length;
+---
+
+<Layout title="Admin Dashboard | MeaMart" description="MeaMart Admin Dashboard">
+  <PageHeader
+    title={t["admin.dashboard.title"]}
+    description={t["admin.dashboard.desc"]}
+  />
+
+  <Container class="pb-24 max-w-full">
+    <AdminNavTabs lang={lang} activeTab="dashboard" />
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+      <div
+        class="rounded-3xl border border-zinc-200/50 bg-white/40 p-6 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+              {t["admin.dashboard.stat.total_ads"]}
+            </p>
+            <h4 class="mt-2 text-3xl font-extrabold">{allAds.length}</h4>
+          </div>
+          <div
+            class="p-3 bg-primary/10 rounded-full text-primary text-sm font-extrabold"
+          >
+            AD
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="rounded-3xl border border-zinc-200/50 bg-white/40 p-6 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+              {t["admin.dashboard.stat.total_users"]}
+            </p>
+            <h4 class="mt-2 text-3xl font-extrabold">{allUsers.length}</h4>
+          </div>
+          <div
+            class="p-3 bg-blue-500/10 rounded-full text-blue-500 text-sm font-extrabold"
+          >
+            US
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="rounded-3xl border border-zinc-200/50 bg-white/40 p-6 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+              {t["admin.dashboard.stat.active_ads"]}
+            </p>
+            <h4 class="mt-2 text-3xl font-extrabold">{activeAdsCount}</h4>
+          </div>
+          <div
+            class="p-3 bg-emerald-500/10 rounded-full text-emerald-500 text-sm font-extrabold"
+          >
+            ON
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- الروابط المركزية -->
+    <div
+      class="rounded-3xl border border-zinc-200/50 bg-white/40 p-6 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40"
+    >
+      <h3 class="text-lg font-extrabold mb-4 text-zinc-900 dark:text-white">
+        {t["admin.dashboard.links.title"]}
+      </h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead
+            class="text-xs text-zinc-500 uppercase bg-zinc-50/50 dark:bg-zinc-800/50"
+          >
+            <tr>
+              <th class="px-4 py-3 text-start"
+                >{t["admin.dashboard.links.col.desc"]}</th
+              >
+              <th class="px-4 py-3 text-start"
+                >{t["admin.dashboard.links.col.url"]}</th
+              >
+              <th class="px-4 py-3 text-center"
+                >{t["admin.dashboard.links.col.action"]}</th
+              >
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {
+              [
+                {
+                  label: "robots.txt",
+                  desc: t["admin.dashboard.links.robots"],
+                  path: "/robots.txt",
+                },
+                {
+                  label: "Sitemap XML",
+                  desc: t["admin.dashboard.links.sitemap"],
+                  path: "/sitemap-index.xml",
+                },
+                {
+                  label: "RSS Feed",
+                  desc: t["admin.dashboard.links.rss"],
+                  path: "/rss.xml",
+                },
+                {
+                  label: "Bot Info API",
+                  desc: t["admin.dashboard.links.bot_info"],
+                  path: "/api/ads/bot-info",
+                },
+                {
+                  label: "Product Info API",
+                  desc: t["admin.dashboard.links.product_info"],
+                  path: "/api/products/product-info",
+                },
+                {
+                  label: "Products API",
+                  desc: t["admin.dashboard.links.products_api"],
+                  path: "/api/v1/products",
+                },
+                {
+                  label: "Export JSON",
+                  desc: t["admin.dashboard.links.export_json"],
+                  path: "/api/seller/export-json",
+                },
+              ].map((link) => (
+                <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                  <td class="px-4 py-3">
+                    <div class="font-bold text-zinc-900 dark:text-white text-xs">
+                      {link.label}
+                    </div>
+                    <div class="text-[11px] text-zinc-500">{link.desc}</div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <code class="text-[11px] font-mono text-primary bg-primary/5 px-2 py-1 rounded-lg break-all">
+                      {link.path}
+                    </code>
+                  </td>
+                  <td class="px-4 py-3 text-center">
+                    <div class="flex items-center justify-center gap-1">
+                      <a
+                        href={link.path}
+                        target="_blank"
+                        class="p-1.5 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                        title="Open"
+                      >
+                        <svg
+                          class="w-3.5 h-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                          />
+                        </svg>
+                      </a>
+                      <button
+                        class="copy-link-btn p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                        data-path={link.path}
+                        title="Copy full URL"
+                      >
+                        <svg
+                          class="w-3.5 h-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </Container>
+</Layout>
+
+<script>
+  document.querySelectorAll(".copy-link-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const path = btn.getAttribute("data-path");
+      if (path) {
+        const fullUrl = window.location.origin + path;
+        navigator.clipboard.writeText(fullUrl).then(() => {
+          btn.classList.add("text-emerald-500");
+          setTimeout(() => {
+            btn.classList.remove("text-emerald-500");
+          }, 1200);
+        });
+      }
+    });
+  });
+</script>

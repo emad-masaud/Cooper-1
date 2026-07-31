@@ -1,0 +1,241 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import Container from "~/components/ui/Container.astro";
+import PageHeader from "~/components/layout/PageHeader.astro";
+import { languages, defaultLang } from "~/i18n/ui";
+
+export const prerender = false;
+
+const { lang = defaultLang } = Astro.params;
+const isAr = lang === "ar";
+
+let pageTitle = "Terms of Service | MeaMart";
+let pageDescription =
+  "Terms and conditions for using MeaMart classified ads platform";
+let headerTitle = "Terms of Service";
+let headerDescription =
+  "User agreement and publishing policies on our platform";
+
+if (isAr) {
+  pageTitle = "شروط الخدمة والاستخدام | ميمارت";
+  pageDescription =
+    "شروط وأحكام استخدام منصة ميمارت للإعلانات المبوبة في الخليج";
+  headerTitle = "شروط الخدمة والاستخدام";
+  headerDescription = "اتفاقية الاستخدام والسياسات المعتمدة في منصتنا";
+}
+---
+
+<Layout title={pageTitle} description={pageDescription}>
+  <PageHeader title={headerTitle} description={headerDescription} />
+
+  <Container class="pb-24 max-w-7xl">
+    <div
+      class="prose prose-zinc dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-300"
+    >
+      {
+        isAr && (
+          // Arabic Content in Saudi dialect tone
+          <div class="space-y-8">
+            <p class="text-lg font-medium">آخر تحديث: 30 مايو 2026</p>
+
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+                1. موافقتك على الشروط
+              </h2>
+              <p>
+                بمجرد دخولك واستخدامك لمنصة ميمارت، أنت توافق بشكل كامل على
+                الالتزام بكل الشروط والأحكام المكتوبة هنا. إذا كنت غير موافق على
+                أي بند، يرجى عدم استخدام المنصة.
+              </p>
+            </div>
+
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+                2. المحتوى الممنوع والمخالف للسياسات
+              </h2>
+              <p class="mb-4">
+                نحن في ميمارت نستهدف سوق الخليج العربي ونلتزم بالأنظمة والقوانين
+                المعتمدة في دول مجلس التعاون الخليجي. يمنع منعاً باتاً نشر أي
+                إعلانات تحتوي على:
+              </p>
+              <ul class="list-disc ps-6 space-y-2">
+                <li>الأسلحة والذخائر والمتفجرات بجميع أنواعها وأشكالها.</li>
+                <li>
+                  المواد الإباحية أو الصور الخليعة والمخلة بالآداب العامة
+                  والشريعة الإسلامية.
+                </li>
+                <li>
+                  المحتوى السياسي أو الطائفي أو المثير للفتن والخلافات العنصرية.
+                </li>
+                <li>المواد المخدرة والمسكرات والأدوية الطبية غير المصرحة.</li>
+                <li>
+                  السلع المقلدة أو المسروقة أو التي تنتهك حقوق الملكية الفكرية
+                  للآخرين.
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+                3. مسؤولية المعلن
+              </h2>
+              <p>
+                أنت المسؤول الأول والأخير عن صحة ودقة البيانات والمعلومات التي
+                تنشرها في إعلانك. يتوجب عليك عدم تضليل المشترين والالتزام بالصدق
+                والأمانة عند البيع والشراء.
+              </p>
+            </div>
+
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+                4. إنهاء الحساب والخدمة
+              </h2>
+              <p>
+                يحق لمنصة ميمارت حذف أي إعلان مخالف للسياسات فوراً ودون إنذار
+                مسبق، كما يحق لنا حظر رقم هاتف المعلن المخالف بشكل دائم لحماية
+                مستخدمينا.
+              </p>
+            </div>
+
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+                5. حدود المسؤولية
+              </h2>
+              <p>
+                ميمارت هي منصة وسيطة تربط بين البائع والمشتري فقط. نحن لا نتحمل
+                أي مسؤولية عن أي عمليات احتيال أو خلافات مالية أو جودة السلع
+                المعروضة. ننصح دائماً بالتعامل المباشر والمعاينة اليدوية قبل
+                الدفع.
+              </p>
+            </div>
+
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+                6. سياسة انتهاء الإعلانات والتمييز
+              </h2>
+              <p class="mb-4">
+                لتنظيم المحتوى وضمان فاعلية المنصة وتحديثها باستمرار، نعتمد
+                السياسة التالية لانتهاء الإعلانات:
+              </p>
+              <ul class="list-disc ps-6 space-y-2">
+                <li>
+                  الإعلانات العادية المجانية: مدة صلاحيتها أسبوع واحد (7 أيام)
+                  فقط من تاريخ النشر ثم تنتهي وتختفي تلقائياً.
+                </li>
+                <li>
+                  الإعلانات المميزة (المدفوعة): مدة صلاحيتها شهر كامل (30 يوماً)
+                  لضمان تحقيق أعلى نسبة مشاهدة ومبيعات.
+                </li>
+              </ul>
+            </div>
+          </div>
+        )
+      }
+      {
+        !isAr && (
+          // English Content
+          <div class="space-y-8">
+            <p class="text-lg font-medium">Last updated: May 30, 2026</p>
+
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+                1. Agreement to Terms
+              </h2>
+              <p>
+                By accessing or using MeaMart, you agree to be bound by these
+                Terms of Service. If you disagree with any part of these terms,
+                you may not access our services.
+              </p>
+            </div>
+
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+                2. Prohibited Content & Listings
+              </h2>
+              <p class="mb-4">
+                We target the Arabian Gulf market and strictly comply with the
+                local regulations and laws of the GCC countries. The listing of
+                the following items is strictly prohibited:
+              </p>
+              <ul class="list-disc ps-6 space-y-2">
+                <li>Weapons, ammunition, and explosives of all types.</li>
+                <li>
+                  Pornographic material, nudity, or listings violating Islamic
+                  values and public modesty.
+                </li>
+                <li>
+                  Political content, sectarianism, or anything inciting
+                  discrimination or social unrest.
+                </li>
+                <li>
+                  Drugs, narcotics, alcohol, and unauthorized pharmaceutical
+                  products.
+                </li>
+                <li>
+                  Counterfeit goods, stolen properties, or any listings
+                  violating intellectual property rights.
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+                3. User Responsibilities
+              </h2>
+              <p>
+                You are solely responsible for the accuracy and legality of the
+                information you publish in your listings. You agree not to
+                mislead buyers and to act in good faith.
+              </p>
+            </div>
+
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+                4. Ad and Account Termination
+              </h2>
+              <p>
+                MeaMart reserves the right to remove any violating listings
+                immediately without prior notice, and block the phone numbers of
+                repeat offenders.
+              </p>
+            </div>
+
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+                5. Limitation of Liability
+              </h2>
+              <p>
+                MeaMart is a connecting platform between sellers and buyers. We
+                do not inspect the listings and are not responsible for any
+                financial disputes, quality issues, or fraudulent behavior. We
+                recommend meeting in public places and inspecting items before
+                payment.
+              </p>
+            </div>
+
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">
+                6. Ad Expiration & Promotion Policy
+              </h2>
+              <p class="mb-4">
+                To ensure platform effectiveness and up-to-date content, the
+                following expiration policies apply:
+              </p>
+              <ul class="list-disc ps-6 space-y-2">
+                <li>
+                  Free/Regular Ads: Valid for one week (7 days) only from the
+                  publication date, after which they expire and disappear
+                  automatically.
+                </li>
+                <li>
+                  Featured/Paid Ads: Valid for a full month (30 days) to
+                  maximize visibility and potential sales.
+                </li>
+              </ul>
+            </div>
+          </div>
+        )
+      }
+    </div>
+  </Container>
+</Layout>

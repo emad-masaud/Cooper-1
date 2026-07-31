@@ -1,0 +1,73 @@
+---
+const currencies = [
+  { code: 'SAR', symbol: 'ر.س', name: 'Saudi Riyal' },
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+];
+
+const selectedCurrency = Astro.cookies.get('meamart_currency')?.value || 'SAR';
+const displaySymbol = currencies.find(c => c.code === selectedCurrency)?.symbol || selectedCurrency;
+---
+<div class="relative group currency-picker">
+    <button class="currency-toggle h-10 w-10 flex items-center justify-center rounded-full text-foreground/65 hover:text-foreground bg-foreground/5 hover:bg-foreground/10 border border-foreground/10 transition-all shadow-xs focus:outline-none shrink-0" aria-label="Select Currency" aria-expanded="false">
+        <span class="text-sm font-bold uppercase">{displaySymbol}</span>
+    </button>
+    <div class="currency-menu absolute right-0 top-full mt-2 w-32 bg-white border border-zinc-200/50 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 dark:bg-zinc-900 dark:border-zinc-800">
+        <ul class="py-1 max-h-48 overflow-y-auto">
+            {currencies.map((curr) => (
+                <li>
+                    <button 
+                        data-currency={curr.code}
+                        class={`w-full text-center px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors ${selectedCurrency === curr.code ? 'text-primary font-bold' : 'text-zinc-700 dark:text-zinc-300'}`}
+                    >
+                        {curr.symbol} ({curr.code})
+                    </button>
+                </li>
+            ))}
+        </ul>
+    </div>
+</div>
+
+<script>
+    function setupCurrencyPicker() {
+        const containers = document.querySelectorAll('.currency-picker');
+
+        containers.forEach(container => {
+            const toggle = container.querySelector('.currency-toggle') as HTMLElement;
+            const menu = container.querySelector('.currency-menu') as HTMLElement;
+            const buttons = container.querySelectorAll('button[data-currency]');
+
+            if (!toggle || !menu) return;
+
+            // Toggle menu on click
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+                toggle.setAttribute('aria-expanded', (!isExpanded).toString());
+                menu.classList.toggle('!opacity-100');
+                menu.classList.toggle('!visible');
+            });
+
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const currency = btn.getAttribute('data-currency');
+                    if (currency) {
+                        // Save to cookie and reload
+                        document.cookie = `meamart_currency=${currency}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`;
+                        window.location.reload();
+                    }
+                });
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!container.contains(e.target as Node)) {
+                    menu.classList.remove('!opacity-100', '!visible');
+                    toggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+        });
+    }
+
+    setupCurrencyPicker();
+    document.addEventListener('astro:page-load', setupCurrencyPicker);
+</script>

@@ -1,0 +1,102 @@
+---
+import { siteConfig } from "~/site.config";
+import { useTranslations } from "~/i18n/utils";
+
+interface Props {
+  position: "belowCategories" | "afterSliders" | "inFeedMarketplace";
+  lang: string;
+  class?: string;
+}
+
+const { position, lang, class: className = "" } = Astro.props;
+const isAr = lang === "ar";
+const t = useTranslations(lang);
+
+// الحصول على بيانات البنر من التكوين المركزي
+const bannerConfig = siteConfig.banners?.[position];
+const bannersEnabled = siteConfig.banners?.enabled;
+
+if (!bannersEnabled || !bannerConfig) {
+  return null;
+}
+
+const { type, imageAr, imageEn, titleAr, titleEn, link, html, adsense } =
+  bannerConfig;
+let image = imageEn;
+let title = titleEn;
+
+if (isAr) {
+  image = imageAr;
+  title = titleAr;
+}
+const targetLink = link
+  ? link.startsWith("http")
+    ? link
+    : `/${lang}${link}`
+  : "#";
+---
+
+<div class={`w-full overflow-hidden transition-all duration-300 ${className}`}>
+  {
+    type === "custom_image" && image && (
+      <a
+        href={targetLink}
+        class="group relative block w-full overflow-hidden rounded-3xl border border-zinc-200/50 bg-zinc-100 shadow-sm transition-all duration-300 hover:border-zinc-300/80 hover:shadow-md dark:border-zinc-800/50 dark:bg-zinc-900"
+      >
+        {/* تأثير تظليل/وهج خفيف في الخلفية */}
+        <div class="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+
+        <div class="flex flex-col md:flex-row items-center justify-between gap-6 p-6 md:p-8">
+          <div class="flex-1 space-y-2 text-center md:text-right">
+            <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary dark:bg-primary/20 dark:text-primary-foreground">
+              {t["ad.banner.sponsored"]}
+            </span>
+            {title && (
+              <h3 class="text-lg md:text-xl font-bold font-display text-zinc-900 dark:text-white leading-snug">
+                {title}
+              </h3>
+            )}
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">
+              {t["ad.banner.cta.details"]}
+            </p>
+          </div>
+
+          {image && (
+            <div class="relative w-full md:w-72 aspect-video overflow-hidden rounded-2xl border border-zinc-200/20 shadow-xs">
+              <img
+                src={image}
+                alt={title || "Ad Banner"}
+                class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                loading="lazy"
+              />
+            </div>
+          )}
+        </div>
+      </a>
+    )
+  }
+
+  {type === "custom_html" && html && <div class="w-full" set:html={html} />}
+
+  {
+    type === "google_adsense" && adsense?.client && adsense?.slot && (
+      <div class="flex flex-col items-center justify-center p-4 rounded-3xl border border-zinc-200/30 bg-zinc-50/50 dark:border-zinc-800/30 dark:bg-zinc-950/50 min-h-[120px] text-center">
+        <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+          {t["ad.banner.advertisement"]}
+        </span>
+        {/* تضمين تاق أدسنس */}
+        <ins
+          class="adsbygoogle"
+          style="display:block; text-align:center;"
+          data-ad-layout="in-article"
+          data-ad-format="fluid"
+          data-ad-client={adsense.client}
+          data-ad-slot={adsense.slot}
+        />
+        <script is:inline>
+          (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+      </div>
+    )
+  }
+</div>

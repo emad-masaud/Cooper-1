@@ -1,0 +1,860 @@
+---
+import Layout from '~/layouts/Layout.astro';
+import Container from '~/components/ui/Container.astro';
+import PageHeader from '~/components/layout/PageHeader.astro';
+import { getMeamartSession } from '~/utils/session';
+import { defaultLang, ui } from '~/i18n/ui';
+import { isRtl, useTranslations } from '~/i18n/utils';
+import { kvGet } from '~/utils/kv';
+import SellerSubNav from '~/components/seller/SellerSubNav.astro';
+
+export const prerender = false;
+
+const { lang = defaultLang } = Astro.params;
+const rtl = isRtl(lang);
+const t = useTranslations(lang);
+const isAr = lang === 'ar';
+
+
+// Get session
+let session = Astro.locals.userSession || await getMeamartSession(Astro);
+
+if (!session) {
+  return Astro.redirect(`/${lang}/login`);
+}
+
+const sellerName = session.name || '';
+const sellerPhone = session.phone || '';
+const cleanSellerPhone = sellerPhone.replace(/[^0-9]/g, '');
+
+let adsCount = 0;
+let productsCount = 0; // Keeping for SubNav compatibility for now, but will set to 0
+let sellerAddresses: any[] = [];
+
+// Fetch counts and addresses
+try {
+  const { createSupabaseAdminServerClient } = await import('~/utils/supabase');
+  const supabase = createSupabaseAdminServerClient(Astro);
+  const { count } = await supabase
+    .from('ads')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', session.id);
+  
+  adsCount = count || 0;
+} catch (e) {
+  console.error('[Seller Addresses] Error fetching ads count:', e);
+}
+
+try {
+  const userId = session.id;
+  const kvKey = `seller_addresses_${userId}`;
+  const dataStr = await kvGet(Astro, kvKey);
+  if (dataStr) {
+    sellerAddresses = JSON.parse(dataStr);
+  }
+} catch (e) {
+  console.error('[Seller Addresses] Error fetching addresses from KV:', e);
+}
+
+const googleMapsApiKey = import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY || process.env.PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyCDwx8Lxi8TTwvzxnGwkCHc6D_jzFaJyLU';
+---
+
+<Layout
+  title={t['gen.lt.addresses.1']}
+  description={t['gen.lt.addresses.2']}
+>
+  <PageHeader
+    title={t['gen.lt.addresses.3']}
+    description={t['gen.lt.addresses.4']}
+  />
+
+  <Container class="pb-24">
+    <SellerSubNav
+      lang={lang}
+      activeTab="addresses"
+      adsCount={adsCount}
+      productsCount={productsCount}
+      addressesCount={sellerAddresses.length}
+    />
+
+    <div class="space-y-6">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-200/60 pb-4 dark:border-zinc-800/60">
+        <h2 class="flex items-center gap-2 text-xl font-bold text-zinc-900 dark:text-zinc-50">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin text-primary"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.74a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>{t['gen.lt.addresses.5']}</span>
+        </h2>
+        
+        <button
+          type="button"
+          id="btn-add-address"
+          class="rounded-full bg-primary text-white shadow-md shadow-primary/10 px-6 py-2.5 text-xs font-bold transition hover:bg-primary/90 cursor-pointer"
+        >
+          {t['gen.lt.addresses.6']}
+        </button>
+      </div>
+
+      {sellerAddresses.length === 0 ? (
+        <div class="rounded-3xl border border-dashed border-zinc-200 bg-zinc-50 py-20 text-center dark:border-zinc-800 dark:bg-zinc-900/20 mb-8">
+          <div class="flex justify-center mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin text-zinc-400"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.74a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-50">{t['gen.lt.addresses.7']}</h3>
+          <p class="mt-2 text-sm text-zinc-500">{t['gen.lt.addresses.8']}</p>
+        </div>
+      ) : (
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {sellerAddresses.map((addr: any) => (
+            <div class="relative flex flex-col gap-4 overflow-hidden rounded-3xl border border-zinc-200/50 bg-white/40 p-5 backdrop-blur-md dark:border-zinc-800/50 dark:bg-zinc-900/40">
+              <div class="flex items-start justify-between">
+                <div>
+                  <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-50">{addr.name}</h3>
+                  <div class="mt-1 flex items-center gap-2">
+                    {addr.type === 'delivery' ? (
+                      <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        {t['gen.lt.addresses.9']}
+                      </span>
+                    ) : (
+                      <span class="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-0.5 text-[10px] font-bold text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                        {t['gen.lt.addresses.10']}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                <div class="flex items-center gap-1">
+                  <button
+                    type="button"
+                    class="btn-edit-address p-2 rounded-xl text-zinc-500 hover:text-primary hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+                    data-id={addr.id}
+                    data-name={addr.name}
+                    data-address={addr.address}
+                    data-city={addr.city}
+                    data-district={addr.district}
+                    data-lat={addr.lat}
+                    data-lng={addr.lng}
+                    data-type={addr.type}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-edit"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  </button>
+                  
+                  <button
+                    type="button"
+                    class="btn-delete-address p-2 rounded-xl text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer"
+                    data-id={addr.id}
+                    data-name={addr.name}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="text-sm text-zinc-600 dark:text-zinc-300 space-y-1">
+                <p class="flex items-start gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin shrink-0 mt-0.5 text-zinc-400"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.74a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <a
+                    href={addr.lat && addr.lng ? `https://www.google.com/maps/search/?api=1&query=${addr.lat},${addr.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="hover:text-primary hover:underline transition-colors flex items-center gap-1.5"
+                  >
+                    <span>{addr.address}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link w-3.5 h-3.5 opacity-60"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                  </a>
+                </p>
+                <p class="text-xs text-zinc-500 flex items-center gap-4 ltr:pl-6 rtl:pr-6">
+                  <span>{t['gen.lt.addresses.11']}: {addr.city}</span>
+                  <span>{t['gen.lt.addresses.12']}: {addr.district}</span>
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </Container>
+
+  <!-- Delete Confirm Modal -->
+  <div id="delete-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-sm shadow-xl border border-zinc-200 dark:border-zinc-800 scale-95 transition-transform duration-200" id="delete-modal-content">
+      <div class="flex justify-center mb-4 text-red-500">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+      </div>
+      <h3 class="text-lg font-bold text-center text-zinc-900 dark:text-white mb-2">{t['gen.lt.addresses.13']}</h3>
+      <p class="text-sm text-center text-zinc-500 dark:text-zinc-400 mb-6" id="delete-modal-text"></p>
+      <div class="flex gap-3">
+        <button id="delete-modal-cancel" class="flex-1 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+          {t['gen.lt.addresses.14']}
+        </button>
+        <button id="delete-modal-confirm" class="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors flex justify-center items-center">
+          <span id="delete-confirm-text">{t['gen.lt.addresses.15']}</span>
+          <span id="delete-confirm-loader" class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Alert Modal -->
+  <div id="alert-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-sm shadow-xl border border-zinc-200 dark:border-zinc-800 scale-95 transition-transform duration-200" id="alert-modal-content">
+      <h3 class="text-lg font-bold text-center text-zinc-900 dark:text-white mb-2" id="alert-modal-title">{t['gen.lt.addresses.16']}</h3>
+      <p class="text-sm text-center text-zinc-500 dark:text-zinc-400 mb-6" id="alert-modal-text"></p>
+      <button id="alert-modal-ok" class="w-full py-2.5 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-colors">
+        {t['gen.lt.addresses.17']}
+      </button>
+    </div>
+  </div>
+
+  <!-- Add/Edit Address Modal -->
+  <div id="address-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-lg shadow-xl border border-zinc-200 dark:border-zinc-800 scale-95 transition-transform duration-200 max-h-[90vh] overflow-y-auto" id="address-modal-content">
+      <h3 class="text-lg font-bold text-zinc-900 dark:text-white mb-4" id="address-modal-title">
+        {t['gen.lt.addresses.18']}
+      </h3>
+      
+      <form id="address-form" class="space-y-4">
+        <input type="hidden" id="address-form-id" name="id" />
+        
+        <div>
+          <label class="form-label">
+            {t['gen.lt.addresses.19']} *
+          </label>
+          <input
+            type="text"
+            id="address-form-name"
+            name="name"
+            required
+            class="form-input"
+          />
+        </div>
+        
+        <div>
+          <label class="form-label">
+            {t['gen.lt.addresses.20']} *
+          </label>
+          <select
+            id="address-form-type"
+            name="type"
+            required
+            class="form-select"
+          >
+            <option value="delivery">{t['gen.lt.addresses.21']}</option>
+            <option value="pickup">{t['gen.lt.addresses.22']}</option>
+          </select>
+        </div>
+
+        <!-- SPL National Address Lookup Box -->
+        <div class="rounded-full border border-emerald-500/20 bg-emerald-500/5 p-3.5 dark:bg-emerald-500/10 mb-3">
+          <label class="block text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shield-check"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+            <span>بحث وتحديد مباشر بالعنوان الوطني (سبل / SPL)</span>
+          </label>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              id="spl-lookup-input"
+              placeholder="مثال: RRRD2929 أو رقم المبنى والحي"
+              class="flex-1 rounded-xl border border-emerald-500/30 bg-white py-2.5 px-3 text-xs outline-hidden focus:border-emerald-500 dark:bg-zinc-900 dark:text-zinc-50"
+            />
+            <button
+              type="button"
+              id="btn-spl-lookup"
+              class="rounded-xl bg-emerald-600 text-white px-4 py-2 text-xs font-bold transition hover:bg-emerald-700 flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
+            >
+              <span>تحديد الموقع</span>
+              <span id="spl-loader" class="hidden w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            </button>
+          </div>
+          <p id="spl-status-text" class="mt-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hidden"></p>
+        </div>
+
+        <div>
+          <label class="form-label">
+            {t['gen.lt.addresses.23']} *
+          </label>
+          <input
+            type="text"
+            id="address-form-search"
+            name="address"
+            required
+            placeholder={t['gen.lt.addresses.24']}
+            class="form-input"
+          />
+        </div>
+
+        <!-- Visual Map -->
+        <div id="address-form-map-container-wrapper" class="hidden">
+          <div id="address-form-map-container" class="h-48 w-full rounded-full border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-inner bg-zinc-100 dark:bg-zinc-950"></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">
+              {t['gen.lt.addresses.25']} *
+            </label>
+            <input
+              type="text"
+              id="address-form-city"
+              name="city"
+              required
+              class="form-input"
+            />
+          </div>
+          <div>
+            <label class="form-label">
+              {t['gen.lt.addresses.26']} *
+            </label>
+            <input
+              type="text"
+              id="address-form-district"
+              name="district"
+              required
+              class="form-input"
+            />
+          </div>
+        </div>
+
+        <input type="hidden" id="address-form-lat" name="lat" />
+        <input type="hidden" id="address-form-lng" name="lng" />
+
+        <div class="flex gap-3 pt-2">
+          <button type="button" id="address-modal-cancel" class="flex-1 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+            {t['gen.lt.addresses.27']}
+          </button>
+          <button type="submit" id="address-modal-submit" class="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-colors flex justify-center items-center">
+            <span id="address-submit-text">{t['gen.lt.addresses.28']}</span>
+            <span id="address-submit-loader" class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Google Maps Key Div -->
+  <div id="gmaps-key" data-key={googleMapsApiKey} data-lang={lang} class="hidden"></div>
+</Layout>
+
+<script is:inline define:vars={{ translations: ui[lang as string] || ui['en'] }}>
+  const t = translations;
+  function showAlert(message, title = 'تنبيه') {
+    const modal = document.getElementById('alert-modal');
+    const content = document.getElementById('alert-modal-content');
+    document.getElementById('alert-modal-text').innerText = message;
+    document.getElementById('alert-modal-title').innerText = title;
+    
+    modal.classList.remove('opacity-0', 'pointer-events-none');
+    content.classList.remove('scale-95');
+    content.classList.add('scale-100');
+
+    return new Promise(resolve => {
+      document.getElementById('alert-modal-ok').onclick = () => {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        content.classList.remove('scale-100');
+        content.classList.add('scale-95');
+        resolve();
+      };
+    });
+  }
+
+  function showDeleteConfirm(title) {
+    const modal = document.getElementById('delete-modal');
+    const content = document.getElementById('delete-modal-content');
+    document.getElementById('delete-modal-text').innerText = title;
+    
+    modal.classList.remove('opacity-0', 'pointer-events-none');
+    content.classList.remove('scale-95');
+    content.classList.add('scale-100');
+
+    return new Promise(resolve => {
+      document.getElementById('delete-modal-cancel').onclick = () => {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        content.classList.remove('scale-100');
+        content.classList.add('scale-95');
+        resolve(false);
+      };
+      document.getElementById('delete-modal-confirm').onclick = () => {
+        resolve(true);
+      };
+    });
+  }
+
+  function closeDeleteConfirm() {
+    const modal = document.getElementById('delete-modal');
+    const content = document.getElementById('delete-modal-content');
+    modal.classList.add('opacity-0', 'pointer-events-none');
+    content.classList.remove('scale-100');
+    content.classList.add('scale-95');
+  }
+
+  // ── Addresses Dashboard Logic ──────────────────────────────────────────────
+  let addressMap = null;
+  let addressMarker = null;
+  let addressAutocomplete = null;
+  const isAr = window.location.pathname.startsWith('/ar');
+  
+
+  function initAddressLeafletFallbackMap(latVal, lngVal) {
+    const mapContainer = document.getElementById('address-form-map-container');
+    const wrapper = document.getElementById('address-form-map-container-wrapper');
+    if (!mapContainer) return;
+    if (wrapper) wrapper.classList.remove('hidden');
+
+    const defaultLat = latVal || 24.7136;
+    const defaultLng = lngVal || 46.6753;
+
+    const startLeaflet = () => {
+      mapContainer.innerHTML = '';
+      if (!window.L) return;
+      const lMap = window.L.map(mapContainer).setView([defaultLat, defaultLng], 14);
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(lMap);
+
+      const lMarker = window.L.marker([defaultLat, defaultLng], { draggable: true }).addTo(lMap);
+
+      const searchInput = document.getElementById('address-form-search');
+      const cityInput = document.getElementById('address-form-city');
+      const districtInput = document.getElementById('address-form-district');
+      const latInput = document.getElementById('address-form-lat');
+      const lngInput = document.getElementById('address-form-lng');
+
+      const updateCoordsAndAddress = async (newLat, newLng) => {
+        if (latInput) latInput.value = String(newLat);
+        if (lngInput) lngInput.value = String(newLng);
+
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${newLat}&lon=${newLng}&accept-language=ar`);
+          const data = await res.json();
+          if (data && data.address) {
+            if (searchInput && data.display_name) searchInput.value = data.display_name;
+            const city = data.address.city || data.address.town || data.address.state || '';
+            const district = data.address.suburb || data.address.neighbourhood || data.address.county || '';
+            if (cityInput && city) cityInput.value = city;
+            if (districtInput && district) districtInput.value = district;
+          }
+        } catch (e) {}
+      };
+
+      lMarker.on('dragend', () => {
+        const pos = lMarker.getLatLng();
+        updateCoordsAndAddress(pos.lat, pos.lng);
+      });
+
+      lMap.on('click', (e) => {
+        lMarker.setLatLng(e.latlng);
+        updateCoordsAndAddress(e.latlng.lat, e.latlng.lng);
+      });
+
+      if (!window.__addrMapResizeObserver && typeof ResizeObserver !== "undefined") {
+        window.__addrMapResizeObserver = new ResizeObserver(() => {
+          lMap.invalidateSize();
+        });
+        window.__addrMapResizeObserver.observe(mapContainer);
+      }
+    };
+
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    if (!window.L) {
+      if (!document.getElementById('leaflet-js')) {
+        const script = document.createElement('script');
+        script.id = 'leaflet-js';
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.onload = startLeaflet;
+        document.head.appendChild(script);
+      } else {
+        const checkL = setInterval(() => {
+          if (window.L) {
+            clearInterval(checkL);
+            startLeaflet();
+          }
+        }, 100);
+      }
+    } else {
+      startLeaflet();
+    }
+  }
+
+  function initAddressFormMap(latVal, lngVal) {
+    if (!window.google?.maps?.Map || window.__meamartGoogleMapsAuthFailed) {
+      return initAddressLeafletFallbackMap(latVal, lngVal);
+    }
+
+    const mapContainer = document.getElementById('address-form-map-container');
+    const wrapper = document.getElementById('address-form-map-container-wrapper');
+    if (!mapContainer) return;
+    
+    if (wrapper) wrapper.classList.remove('hidden');
+    
+    const defaultPos = { lat: latVal || 24.7136, lng: lngVal || 46.6753 };
+    
+    if (!addressMap) {
+      addressMap = new window.google.maps.Map(mapContainer, {
+        zoom: 15,
+        center: defaultPos,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false
+      });
+      
+      addressMarker = new window.google.maps.Marker({
+        position: defaultPos,
+        map: addressMap,
+        draggable: true
+      });
+      
+      const geocoder = new window.google.maps.Geocoder();
+      const searchInput = document.getElementById('address-form-search');
+      const cityInput = document.getElementById('address-form-city');
+      const districtInput = document.getElementById('address-form-district');
+      const latInput = document.getElementById('address-form-lat');
+      const lngInput = document.getElementById('address-form-lng');
+
+      addressMarker.addListener('dragend', () => {
+        const newPos = addressMarker.getPosition();
+        if (latInput) latInput.value = String(newPos.lat());
+        if (lngInput) lngInput.value = String(newPos.lng());
+
+        geocoder.geocode({ location: newPos }, (results, status) => {
+          if (status === 'OK' && results[0]) {
+            if (searchInput) searchInput.value = results[0].formatted_address;
+            let city = '';
+            let district = '';
+
+            results[0].address_components.forEach((c) => {
+              const types = c.types;
+              if (types.includes('locality') || types.includes('administrative_area_level_2')) {
+                city = c.long_name;
+              }
+              if (types.includes('sublocality') || types.includes('neighborhood') || types.includes('administrative_area_level_3')) {
+                district = c.long_name;
+              }
+            });
+
+            if (city && cityInput) cityInput.value = city;
+            if (district && districtInput) districtInput.value = district;
+          }
+        });
+      });
+    } else {
+      addressMap.setCenter(defaultPos);
+      addressMarker.setPosition(defaultPos);
+      addressMap.setZoom(15);
+    }
+  }
+
+  function initAddressAutocomplete() {
+    const searchInput = document.getElementById('address-form-search');
+    if (!searchInput || addressAutocomplete || !window.google?.maps?.places) return;
+    
+    addressAutocomplete = new window.google.maps.places.Autocomplete(searchInput, {
+      types: ['geocode', 'establishment'],
+      componentRestrictions: { country: ['sa', 'ae', 'qa', 'kw', 'bh', 'om'] }
+    });
+
+    const cityInput = document.getElementById('address-form-city');
+    const districtInput = document.getElementById('address-form-district');
+    const latInput = document.getElementById('address-form-lat');
+    const lngInput = document.getElementById('address-form-lng');
+
+    addressAutocomplete.addListener('place_changed', () => {
+      const place = addressAutocomplete.getPlace();
+      if (!place.geometry) return;
+      
+      const lat = place.geometry.location.lat();
+      const lng = place.geometry.location.lng();
+      if (latInput) latInput.value = String(lat);
+      if (lngInput) lngInput.value = String(lng);
+      
+      let city = '';
+      let district = '';
+
+      if (place.address_components) {
+        place.address_components.forEach((c) => {
+          const types = c.types;
+          if (types.includes('locality') || types.includes('administrative_area_level_2')) {
+            city = c.long_name;
+          }
+          if (types.includes('sublocality') || types.includes('neighborhood') || types.includes('administrative_area_level_3')) {
+            district = c.long_name;
+          }
+        });
+      }
+
+      if (city && cityInput) cityInput.value = city;
+      if (district && districtInput) districtInput.value = district;
+
+      initAddressFormMap(lat, lng);
+    });
+  }
+
+  function openAddressModal(addressObj = null) {
+    const modal = document.getElementById('address-modal');
+    const content = document.getElementById('address-modal-content');
+    const title = document.getElementById('address-modal-title');
+    
+    const idField = document.getElementById('address-form-id');
+    const nameField = document.getElementById('address-form-name');
+    const typeField = document.getElementById('address-form-type');
+    const searchField = document.getElementById('address-form-search');
+    const cityField = document.getElementById('address-form-city');
+    const districtField = document.getElementById('address-form-district');
+    const latField = document.getElementById('address-form-lat');
+    const lngField = document.getElementById('address-form-lng');
+
+    if (!modal || !content) return;
+
+    if (addressObj) {
+      title.innerText = t['gen.lt.addresses.29'];
+      idField.value = addressObj.id || '';
+      nameField.value = addressObj.name || '';
+      typeField.value = addressObj.type || 'delivery';
+      searchField.value = addressObj.address || '';
+      cityField.value = addressObj.city || '';
+      districtField.value = addressObj.district || '';
+      latField.value = addressObj.lat || '';
+      lngField.value = addressObj.lng || '';
+      
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      content.classList.remove('scale-95');
+      content.classList.add('scale-100');
+
+      setTimeout(() => {
+        initAddressAutocomplete();
+        if (addressObj.lat && addressObj.lng) {
+          initAddressFormMap(Number(addressObj.lat), Number(addressObj.lng));
+        }
+      }, 100);
+    } else {
+      title.innerText = t['gen.lt.addresses.30'];
+      idField.value = '';
+      nameField.value = '';
+      typeField.value = 'delivery';
+      searchField.value = '';
+      cityField.value = '';
+      districtField.value = '';
+      latField.value = '';
+      lngField.value = '';
+      
+      const wrapper = document.getElementById('address-form-map-container-wrapper');
+      if (wrapper) wrapper.classList.remove('hidden');
+      
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      content.classList.remove('scale-95');
+      content.classList.add('scale-100');
+
+      setTimeout(() => {
+        initAddressAutocomplete();
+        initAddressFormMap(24.7136, 46.6753);
+      }, 100);
+    }
+  }
+
+  function closeAddressModal() {
+    const modal = document.getElementById('address-modal');
+    const content = document.getElementById('address-modal-content');
+    if (!modal || !content) return;
+    modal.classList.add('opacity-0', 'pointer-events-none');
+    content.classList.remove('scale-100');
+    content.classList.add('scale-95');
+  }
+
+  function bindAddressButtons() {
+    const addBtn = document.getElementById('btn-add-address');
+    if (addBtn && addBtn.dataset.bound !== 'true') {
+      addBtn.dataset.bound = 'true';
+      addBtn.addEventListener('click', () => openAddressModal());
+    }
+
+    const cancelBtn = document.getElementById('address-modal-cancel');
+    if (cancelBtn && cancelBtn.dataset.bound !== 'true') {
+      cancelBtn.dataset.bound = 'true';
+      cancelBtn.addEventListener('click', () => closeAddressModal());
+    }
+
+    const splBtn = document.getElementById('btn-spl-lookup');
+    if (splBtn && splBtn.dataset.bound !== 'true') {
+      splBtn.dataset.bound = 'true';
+      splBtn.addEventListener('click', async () => {
+        const inputEl = document.getElementById('spl-lookup-input');
+        const query = inputEl?.value?.trim() || '';
+        if (!query) return;
+
+        const loader = document.getElementById('spl-loader');
+        const statusEl = document.getElementById('spl-status-text');
+        if (loader) loader.classList.remove('hidden');
+        if (statusEl) statusEl.classList.add('hidden');
+
+        try {
+          const res = await fetch(`/api/address/spl-lookup?q=${encodeURIComponent(query)}`);
+          const data = await res.json();
+          if (data.success && data.results && data.results.length > 0) {
+            const first = data.results[0];
+            const searchInput = document.getElementById('address-form-search');
+            const cityInput = document.getElementById('address-form-city');
+            const districtInput = document.getElementById('address-form-district');
+            const latInput = document.getElementById('address-form-lat');
+            const lngInput = document.getElementById('address-form-lng');
+
+            if (searchInput) searchInput.value = first.formattedAddress || first.shortAddress;
+            if (cityInput && first.city) cityInput.value = first.city;
+            if (districtInput && first.district) districtInput.value = first.district;
+            if (latInput && first.latitude) latInput.value = String(first.latitude);
+            if (lngInput && first.longitude) lngInput.value = String(first.longitude);
+
+            if (first.latitude && first.longitude) {
+              initAddressFormMap(first.latitude, first.longitude);
+            }
+
+            if (statusEl) {
+              statusEl.innerText = `تم تحديد العنوان: ${first.formattedAddress}`;
+              statusEl.classList.remove('hidden');
+            }
+          } else {
+            if (statusEl) {
+              statusEl.innerText = 'لم يتم العثور على العنوان، يرجى التحقق من الرمز أو النص المكتوب';
+              statusEl.classList.remove('hidden');
+            }
+          }
+        } catch (err) {
+          console.error('SPL lookup error:', err);
+        } finally {
+          if (loader) loader.classList.add('hidden');
+        }
+      });
+    }
+
+    // Edit buttons
+    document.querySelectorAll('.btn-edit-address').forEach((btn) => {
+      if (btn.dataset.bound === 'true') return;
+      btn.dataset.bound = 'true';
+      btn.addEventListener('click', () => {
+        openAddressModal({
+          id: btn.dataset.id,
+          name: btn.dataset.name,
+          address: btn.dataset.address,
+          city: btn.dataset.city,
+          district: btn.dataset.district,
+          lat: btn.dataset.lat,
+          lng: btn.dataset.lng,
+          type: btn.dataset.type
+        });
+      });
+    });
+
+    // Delete buttons
+    document.querySelectorAll('.btn-delete-address').forEach((btn) => {
+      if (btn.dataset.bound === 'true') return;
+      btn.dataset.bound = 'true';
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const name = btn.dataset.name || '';
+        if (!id) return;
+
+        const confirmMsg = t['gen.lt.addresses.31'];
+          
+        const confirmed = await showDeleteConfirm(confirmMsg);
+        if (!confirmed) return;
+
+        try {
+          const res = await fetch('/api/seller/addresses/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+          });
+
+          if (res.ok) {
+            window.location.reload();
+          } else {
+            throw new Error('Failed to delete address');
+          }
+        } catch (err) {
+          showAlert(err.message || 'Error deleting address', t['gen.lt.addresses.32']);
+        } finally {
+          closeDeleteConfirm();
+        }
+      });
+    });
+
+    // Form submit
+    const formEl = document.getElementById('address-form');
+    if (formEl && formEl.dataset.bound !== 'true') {
+      formEl.dataset.bound = 'true';
+      formEl.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const submitBtn = document.getElementById('address-modal-submit');
+        const submitText = document.getElementById('address-submit-text');
+        const submitLoader = document.getElementById('address-submit-loader');
+
+        if (submitBtn) submitBtn.disabled = true;
+        if (submitText) submitText.classList.add('hidden');
+        if (submitLoader) submitLoader.classList.remove('hidden');
+
+        const formData = new FormData(formEl);
+        const dataPayload = {};
+        formData.forEach((val, key) => {
+          dataPayload[key] = val;
+        });
+
+        try {
+          const res = await fetch('/api/seller/addresses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataPayload)
+          });
+
+          if (res.ok) {
+            window.location.reload();
+          } else {
+            const data = await res.json();
+            throw new Error(data.error || 'Failed to save address');
+          }
+        } catch (err) {
+          showAlert(err.message || 'Error saving address', t['gen.lt.addresses.33']);
+          if (submitBtn) submitBtn.disabled = false;
+          if (submitText) submitText.classList.remove('hidden');
+          if (submitLoader) submitLoader.classList.add('hidden');
+        }
+      });
+    }
+  }
+
+  // Load Google Maps API script dynamically
+  function loadGoogleMapsScript() {
+    const gmapsKeyDiv = document.getElementById('gmaps-key');
+    const key = gmapsKeyDiv?.getAttribute('data-key');
+    const mapsLang = gmapsKeyDiv?.getAttribute('data-lang') || t['gen.lt.addresses.34'];
+    
+    bindAddressButtons();
+    window.gm_authFailure = () => {
+      console.warn('Google Maps auth failure detected in addresses.');
+      window.__meamartGoogleMapsAuthFailed = true;
+    };
+
+    if (key && !window.google) {
+      window.initAutocomplete = () => {
+        bindAddressButtons();
+      };
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=initAutocomplete&libraries=places,geocoding&language=${mapsLang}`;
+      script.async = true;
+      script.defer = true;
+      script.onerror = () => {
+        window.__meamartGoogleMapsAuthFailed = true;
+      };
+      document.head.appendChild(script);
+  }
+
+  loadGoogleMapsScript();
+
+  document.addEventListener('astro:page-load', () => {
+    loadGoogleMapsScript();
+  });
+</script>

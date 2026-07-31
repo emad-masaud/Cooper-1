@@ -1,52 +1,68 @@
 ---
 import { defaultLang } from '~/i18n/ui';
 import { useTranslations } from '~/i18n/utils';
-import HeroCentered from './hero/HeroCentered.astro';
-import HeroSplit from './hero/HeroSplit.astro';
-import HeroCinematic from './hero/HeroCinematic.astro';
-import HeroTerminal from './hero/HeroTerminal.astro';
-import HeroSearch from './hero/HeroSearch.astro';
-import type { HeroCta, HeroStat } from './hero/types';
+
+import HeroChatAssistant from '~/components/react/HeroChatAssistant';
+import { getPopularLinks } from '~/utils/popularLinks';
 
 interface Props {
-  variant?: 'centered' | 'split' | 'cinematic' | 'terminal' | 'search';
   badge?: string;
   title?: string;
   highlight?: string;
   description?: string;
-  primaryCta?: HeroCta;
-  secondaryCta?: HeroCta;
-  stats?: HeroStat[];
+  primaryCta?: { text: string; href: string };
+  secondaryCta?: { text: string; href: string };
+  lang?: string;
 }
 
-const { lang = defaultLang } = Astro.params;
+const { lang = defaultLang } = Astro.props as Props;
 const t = useTranslations(lang);
+const popularLinks = await getPopularLinks(lang);
 
 const {
-  variant = 'centered',
   badge = t['hero.badge'],
   title = t['hero.title'],
   highlight = t['hero.highlight'],
   description = t['hero.subtitle'],
-  primaryCta = { text: t['hero.getStarted'], href: "/docs" },
-  secondaryCta = { text: t['hero.learnMore'], href: "/docs/overview" },
-  stats = [
-    { label: t['hero.stats.pages'], value: "111+" },
-    { label: t['hero.stats.languages'], value: "4" },
-    { label: t['hero.stats.uptime'], value: "99.9%" },
-  ]
+  primaryCta = { text: t['hero.getStarted'], href: "/docs/knowledge-center/overview" },
+  secondaryCta = { text: t['hero.learnMore'], href: "/docs/knowledge-center/overview" }
 } = Astro.props;
-
-const heroProps = { badge, title, highlight, description, primaryCta, secondaryCta, stats };
-
-const variants = {
-  centered: HeroCentered,
-  split: HeroSplit,
-  cinematic: HeroCinematic,
-  terminal: HeroTerminal,
-  search: HeroSearch,
-};
-
-const HeroComponent = variants[variant as keyof typeof variants] ?? HeroCentered;
 ---
-<HeroComponent {...heroProps} />
+
+<section class="min-h-[90vh] flex items-center justify-center relative overflow-hidden pt-20 bg-background">
+  <div class="absolute inset-0 z-0 opacity-40">
+     <div class="absolute top-[20%] left-[20%] w-[500px] h-[500px] bg-blue-900/40 rounded-full blur-[128px] animate-pulse"></div>
+     <div class="absolute bottom-[20%] right-[20%] w-[500px] h-[500px] bg-indigo-900/40 rounded-full blur-[128px] animate-pulse" style="animation-delay: 2s;"></div>
+  </div>
+
+  <div class="container mx-auto px-6 relative z-10 text-center">
+    <div class="hero-content opacity-0 translate-y-5">
+
+      <h1 class="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight mb-8 text-foreground">
+        {lang === 'ar' ? 'كيف أقدر أساعدك اليوم؟' : "What's the vibe today?"}
+      </h1>
+
+      
+      <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <HeroChatAssistant client:idle lang={lang} />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero-content {
+    animation: fadeUp 0.8s ease-out forwards;
+  }
+
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>

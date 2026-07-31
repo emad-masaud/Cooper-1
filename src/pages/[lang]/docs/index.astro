@@ -1,0 +1,166 @@
+---
+import Layout from "~/layouts/Layout.astro";
+import { getCollection } from "astro:content";
+import {
+  BookOpen,
+  Rocket,
+  ShoppingBag,
+  ShieldCheck,
+  FileText,
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+
+export const prerender = false;
+
+export async function getStaticPaths() {
+  return [{ params: { lang: "en" } }, { params: { lang: "ar" } }];
+}
+
+const { lang } = Astro.params;
+const isAr = lang === "ar";
+
+const allDocs = await getCollection("docs");
+const docs = allDocs
+  .filter((doc) => doc.id.startsWith(`${lang}/`))
+  .sort((a, b) => (a.data.order || 99) - (b.data.order || 99));
+
+const categories = [
+  {
+    id: "getting-started",
+    title: isAr ? "البدء" : "Getting Started",
+    description: isAr
+      ? "دليلك الأول لاستخدام منصة ميمارت"
+      : "Your first steps in using MeaMart",
+    icon: Rocket,
+    color: "text-blue-500",
+    bg: "bg-blue-50 dark:bg-blue-950/30",
+  },
+  {
+    id: "selling",
+    title: isAr ? "البيع وإنشاء الإعلانات" : "Selling & Ad Creation",
+    description: isAr
+      ? "تعلم كيف تبيع منتجاتك أو تقدم خدماتك بفعالية"
+      : "Learn how to sell products or offer services effectively",
+    icon: ShoppingBag,
+    color: "text-emerald-500",
+    bg: "bg-emerald-50 dark:bg-emerald-950/30",
+  },
+  {
+    id: "buying",
+    title: isAr ? "الشراء والتسوق" : "Buying & Shopping",
+    description: isAr
+      ? "كيف تبحث عن السلع وتتواصل مع البائعين"
+      : "How to search for items and contact sellers",
+    icon: BookOpen,
+    color: "text-violet-500",
+    bg: "bg-violet-50 dark:bg-violet-950/30",
+  },
+  {
+    id: "trust-safety",
+    title: isAr ? "الثقة والأمان" : "Trust & Safety",
+    description: isAr
+      ? "إرشادات الأمان وشروط الاستخدام في ميمارت"
+      : "Safety guidelines and terms of use at MeaMart",
+    icon: ShieldCheck,
+    color: "text-amber-500",
+    bg: "bg-amber-50 dark:bg-amber-950/30",
+  },
+];
+
+// Map docs to their categories
+const docsByCategory = categories
+  .map((cat) => {
+    return {
+      ...cat,
+      items: docs.filter((doc) => doc.id.startsWith(`${lang}/${cat.id}/`)),
+    };
+  })
+  .filter((cat) => cat.items.length > 0);
+---
+
+<Layout
+  title={isAr ? "مركز المعرفة" : "Knowledge Center"}
+  noindex={false}
+  nofollow={false}
+>
+  <div class="relative bg-primary/5 py-16 sm:py-24 border-b border-primary/10">
+    <div class="max-w-5xl mx-auto px-6 relative z-10">
+      <h1
+        class="text-3xl sm:text-5xl font-extrabold mb-4 text-foreground tracking-tight"
+      >
+        {isAr ? "مركز المعرفة" : "Knowledge Center"}
+      </h1>
+      <p class="text-lg sm:text-xl text-foreground/70 max-w-2xl">
+        {
+          isAr
+            ? "كل ما تحتاجه لمعرفة كيفية استخدام منصة ميمارت، من إنشاء حسابك إلى إتمام صفقاتك بنجاح."
+            : "Everything you need to know about using MeaMart, from creating an account to closing deals successfully."
+        }
+      </p>
+    </div>
+    <div
+      class="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay"
+    >
+    </div>
+  </div>
+
+  <div class="max-w-5xl mx-auto px-6 py-16 space-y-16">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      {
+        docsByCategory.map((category) => {
+          const Icon = category.icon;
+          return (
+            <div class="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm overflow-hidden flex flex-col h-full">
+              <div class="p-6 sm:p-8 flex items-start gap-4 border-b border-zinc-100 dark:border-zinc-900">
+                <div
+                  class={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${category.bg} ${category.color}`}
+                >
+                  <Icon class="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 class="text-xl font-bold mb-1 text-foreground">
+                    {category.title}
+                  </h2>
+                  <p class="text-sm text-foreground/60 leading-relaxed">
+                    {category.description}
+                  </p>
+                </div>
+              </div>
+              <div class="p-6 sm:p-8 bg-zinc-50/50 dark:bg-zinc-900/20 flex-1">
+                <ul class="space-y-4">
+                  {category.items.map((item) => {
+                    const slug = item.id
+                      .split("/")
+                      .slice(1)
+                      .join("/")
+                      .replace(/\.[^/.]+$/, "");
+                    const href = `/${lang}/docs/${slug}`;
+                    return (
+                      <li>
+                        <a href={href} class="group flex items-start gap-3">
+                          <FileText class="w-5 h-5 shrink-0 text-zinc-400 group-hover:text-primary transition-colors mt-0.5" />
+                          <div>
+                            <span class="block font-medium text-foreground group-hover:text-primary transition-colors">
+                              {item.data.title}
+                            </span>
+                            {item.data.description && (
+                              <span class="block text-sm text-foreground/60 mt-0.5 line-clamp-1">
+                                {item.data.description}
+                              </span>
+                            )}
+                          </div>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+          );
+        })
+      }
+    </div>
+  </div>
+</Layout>

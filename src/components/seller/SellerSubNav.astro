@@ -1,0 +1,122 @@
+---
+import { useTranslations } from "~/i18n/utils";
+import {
+  LayoutGrid,
+  Package,
+  MapPin,
+  User,
+  QrCode,
+  BarChart3,
+  Code2,
+  Building2,
+  Bot,
+} from "lucide-react";
+
+const {
+  lang,
+  activeTab,
+  adsCount = 0,
+  productsCount = 0,
+  addressesCount = 0,
+} = Astro.props;
+
+const t = useTranslations(lang);
+
+const navItems = [
+  {
+    id: "ads",
+    href: `/${lang}/seller/dashboard`,
+    label: t["seller.subnav.ads"],
+    count: adsCount,
+    Icon: LayoutGrid,
+  },
+  {
+    id: "products",
+    href: `/${lang}/seller/products`,
+    label: t["seller.subnav.products"],
+    count: productsCount,
+    Icon: Package,
+  },
+  {
+    id: "companies",
+    href: `/${lang}/seller/companies`,
+    label: lang === "ar" ? "الشركات والموردين" : "Companies & Suppliers",
+    Icon: Building2,
+  },
+  {
+    id: "addresses",
+    href: `/${lang}/seller/addresses`,
+    label: t["seller.subnav.addresses"],
+    count: addressesCount,
+    Icon: MapPin,
+  },
+  {
+    id: "profile",
+    href: `/${lang}/seller/profile`,
+    label: t["seller.subnav.profile"],
+    Icon: User,
+  },
+  {
+    id: "qr",
+    href: `/${lang}/seller/qr-manager`,
+    label: t["seller.subnav.qr"],
+    Icon: QrCode,
+  },
+  {
+    id: "reports",
+    href: `/${lang}/seller/reports`,
+    label: t["seller.subnav.reports"],
+    Icon: BarChart3,
+  },
+  {
+    id: "chatbot",
+    href: `/${lang}/seller/chatbot`,
+    label: lang === "ar" ? "البوت الذكي" : "Smart Bot",
+    Icon: Bot,
+  },
+  {
+    id: "api",
+    href: `/${lang}/seller/api`,
+    label: t["seller.subnav.api"],
+    Icon: Code2,
+  },
+];
+---
+
+<nav aria-label="Seller Navigation" class="mb-8 w-full">
+  <div
+    class="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-2 px-1 max-w-7xl mx-auto"
+  >
+    {
+      navItems.map(({ id, href, label, count, Icon }) => {
+        const isActive = activeTab === id;
+        return (
+          <a
+            href={href}
+            class={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-all duration-200 shrink-0 select-none ${
+              isActive
+                ? "bg-primary text-white shadow-md shadow-primary/20 scale-[1.01]"
+                : "bg-zinc-100/90 dark:bg-zinc-850 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 px-5 py-3 text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            }`}
+          >
+            <Icon
+              className={`w-4 h-4 shrink-0 ${isActive ? "text-white" : "text-primary/80"}`}
+            />
+            <span>{label}</span>
+            {typeof count === "number" && count > 0 && (
+              <span
+                class={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                  isActive
+                    ? "bg-white/20 text-white"
+                    : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-300"
+                }`}
+              >
+                {count}
+              </span>
+            )}
+          </a>
+        );
+      })
+    }
+  </div>
+</nav>

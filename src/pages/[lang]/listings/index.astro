@@ -1,89 +1,115 @@
 ---
 export const prerender = false;
 import Layout from '~/layouts/Layout.astro';
-import { defaultLang } from '~/i18n/ui';
-import { useTranslations } from '~/i18n/utils';
+import FilterSidebar from '~/components/ui/FilterSidebar.astro';
 import ListingCard from '~/components/ui/ListingCard.astro';
+import { getLangFromUrl, useTranslations } from '~/i18n/utils';
 import { erpnext } from '~/lib/erpnext/client';
-import Section from '~/components/layout/Section.astro';
 import { Search } from 'lucide-react';
 
-const { lang = defaultLang } = Astro.params;
+const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 
-// Parse query params
-const searchParams = Astro.url.searchParams;
-const q = searchParams.get('q') || '';
-const city = searchParams.get('city') || '';
-const category_slug = searchParams.get('category') || '';
+// Parse URL Params
+const q = Astro.url.searchParams.get('q') || '';
+const category_slug = Astro.url.searchParams.get('category_slug') || '';
+const city = Astro.url.searchParams.get('city') || '';
+const page = parseInt(Astro.url.searchParams.get('page') || '1');
+const limit = 24;
+const offset = (page - 1) * limit;
 
-let listings = [];
-let total_count = 0;
-let error = null;
-
-try {
-  const result = await erpnext.getListings({
-    limit: 50,
-    city: city || undefined,
-    category_slug: category_slug || undefined
-  });
-  
-  listings = result.data || [];
-  total_count = result.total_count || 0;
-  
-  if (q) {
-    const qLower = q.toLowerCase();
-    listings = listings.filter(l => 
-      l.title?.toLowerCase().includes(qLower) || 
-      l.summary?.toLowerCase().includes(qLower)
-    );
-    total_count = listings.length;
-  }
-} catch (e) {
-  error = "Failed to fetch listings. Please try again later.";
-  console.error("Error fetching listings:", e);
-}
+// Fetch Data
+const categories = await erpnext.getCategories();
+const listingsResponse = await erpnext.getListings({ limit, offset, category_slug, city, q });
+const listings = listingsResponse.data || [];
+const totalCount = listingsResponse.total_count || 0;
+const totalPages = Math.ceil(totalCount / limit);
 ---
 
-<Layout title={`${t['nav.listings']} | MeaMart`} description="Browse classified ads on MeaMart">
-  <div class="pt-32 pb-20">
-    <Section class="py-8">
-      <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
-        <div>
-          <h1 class="text-4xl font-bold mb-4">{t['nav.all.ads']}</h1>
-          <p class="text-muted-foreground">{t['nav.all.ads.desc']} ({total_count} results)</p>
+<Layout title="تصفح الإعلانات - ميمارت">
+  <div class="bg-slate-50 dark:bg-slate-900 min-h-screen py-8">
+    <div class="max-w-7xl mx-auto px-6">
+      
+      <!-- Search & Sort Bar -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex-1 w-full relative">
+          <form action={`/${lang}/listings`} method="GET" class="w-full">
+            {category_slug && <input type="hidden" name="category_slug" value={category_slug} />}
+            {city && <input type="hidden" name="city" value={city} />}
+            
+            <Search className="w-5 h-5 absolute start-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input 
+              type="text" 
+              name="q"
+              value={q}
+              placeholder="ابحث في الإعلانات..." 
+              class="w-full bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-primary-500 rounded-xl ps-12 pe-4 py-3 outline-none text-slate-900 dark:text-white font-medium transition-colors"
+            />
+          </form>
         </div>
-        
-        <form class="flex gap-2 w-full md:w-auto" action={`/${lang}/listings`} method="get">
-          <div class="relative flex-1 md:w-64">
-            <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-muted-foreground">
-              <Search className="w-4 h-4" />
-            </div>
-            <input type="text" name="q" value={q} class="block w-full p-2.5 ps-10 text-sm bg-background border border-border rounded-lg focus:ring-primary focus:border-primary" placeholder={t['search.placeholder']} />
-          </div>
-          <button type="submit" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-            {t['search.placeholder'].replace('...', '')}
-          </button>
-        </form>
+        <div class="flex items-center gap-3 shrink-0">
+          <span class="text-sm font-medium text-slate-500">ترتيب حسب:</span>
+          <select class="bg-slate-50 dark:bg-slate-900 border border-transparent rounded-xl px-4 py-3 outline-none text-slate-900 dark:text-white font-medium appearance-none cursor-pointer pe-10">
+            <option value="newest">الأحدث</option>
+            <option value="price_asc">السعر (الأقل للأعلى)</option>
+            <option value="price_desc">السعر (الأعلى للأقل)</option>
+            <option value="most_viewed">الأكثر مشاهدة</option>
+          </select>
+        </div>
       </div>
 
-      {error ? (
-        <div class="p-6 bg-destructive/10 text-destructive rounded-xl text-center">
-          {error}
-        </div>
-      ) : listings.length === 0 ? (
-        <div class="text-center py-20 border border-dashed border-border rounded-2xl">
-          <h3 class="text-xl font-medium mb-2">No listings found</h3>
-          <p class="text-muted-foreground">Try adjusting your search criteria</p>
-          <a href={`/${lang}/listings`} class="inline-block mt-6 text-primary hover:underline">Clear all filters</a>
-        </div>
-      ) : (
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {listings.map((listing) => (
-            <ListingCard {...listing} />
-          ))}
-        </div>
-      )}
-    </Section>
+      <div class="flex flex-col lg:flex-row gap-8">
+        <!-- Sidebar -->
+        <aside class="w-full lg:w-1/4 shrink-0">
+          <FilterSidebar 
+            categories={categories} 
+            currentCategory={category_slug} 
+            currentCity={city} 
+          />
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1">
+          <div class="mb-6 flex justify-between items-end">
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-white">
+              {q ? `نتائج البحث عن "${q}"` : 'جميع الإعلانات'}
+            </h1>
+            <span class="text-sm text-slate-500">{totalCount} إعلان</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+            {listings.map((listing) => (
+              <ListingCard listing={listing} />
+            ))}
+          </div>
+
+          {listings.length === 0 && (
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center">
+              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 mb-4">
+                <Search className="w-8 h-8" />
+              </div>
+              <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">لا توجد نتائج</h3>
+              <p class="text-slate-500">حاول تغيير كلمات البحث أو الفلاتر لتجد ما تبحث عنه.</p>
+              <a href={`/${lang}/listings`} class="inline-block mt-6 text-primary-600 font-medium hover:underline">مسح جميع الفلاتر</a>
+            </div>
+          )}
+
+          <!-- Pagination -->
+          {totalPages > 1 && (
+            <div class="mt-12 flex justify-center gap-2">
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <a 
+                  href={`/${lang}/listings?page=${i + 1}${q ? `&q=${q}` : ''}${category_slug ? `&category_slug=${category_slug}` : ''}${city ? `&city=${city}` : ''}`}
+                  class={`w-10 h-10 flex items-center justify-center rounded-xl font-medium transition-colors ${page === i + 1 ? 'bg-primary-600 text-white shadow-lg' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'}`}
+                >
+                  {i + 1}
+                </a>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
+
+    </div>
   </div>
 </Layout>

@@ -1,0 +1,70 @@
+---
+import Layout from '~/layouts/Layout.astro';
+import Container from '~/components/ui/Container.astro';
+import PageHeader from '~/components/layout/PageHeader.astro';
+import AdFilters from '~/components/ui/AdFilters';
+import { languages } from '~/i18n/ui';
+import { useTranslations } from '~/i18n/utils';
+import { categoriesMap } from '~/utils/categories';
+import { resolveCity } from '~/utils/cities';
+import { supabaseAdminClient } from '~/utils/supabase';
+
+export const prerender = false;
+
+const { lang } = Astro.params;
+const t = useTranslations(lang);
+
+// Fetch ads dynamically from Supabase
+const { data: rawAds, error: adsError } = await supabaseAdminClient
+  .from('ads')
+  .select('*')
+  .order('created_at', { ascending: false })
+  .limit(200);
+
+if (adsError) {
+  console.error('Failed to fetch ads from Supabase:', adsError.message);
+}
+
+// Map category ids to slugs
+const { data: categories } = await supabaseAdminClient
+  .from('categories')
+  .select('id, slug');
+const categorySlugById = new Map((categories || []).map((c: any) => [c.id, c.slug]));
+
+const adsData = (rawAds || []).map((ad: any) => {
+  const categoryKey = categorySlugById.get(ad.category_id) || 'used-items';
+  const cat = categoriesMap[categoryKey] || { ar: categoryKey, en: categoryKey };
+  const city = resolveCity(ad.city || '');
+  return {
+    id: String(ad.id),
+    title: ad.title || 'Untitled',
+    price: Number(ad.price) || 0,
+    categoryKey,
+    categoryEn: cat.en,
+    categoryAr: cat.ar,
+    cityKey: ad.city || '',
+    cityEn: city.en,
+    cityAr: city.ar,
+    image: Array.isArray(ad.images) && ad.images[0] ? ad.images[0] : '/logo.svg',
+    sellerPhone: ad.contact_phone || '',
+    descriptionEn: ad.description || '',
+    descriptionAr: ad.description || '',
+    titleEn: ad.title || 'Untitled',
+    titleAr: ad.title || 'Untitled',
+  };
+});
+---
+
+<Layout 
+  title={t['gen.isar.index.1']} 
+  description={t['gen.isar.index.2']}
+>
+  <PageHeader 
+    title={t['gen.isar.index.3']}
+    description={t['gen.isar.index.4']}
+  />
+
+  <Container as="section" class="pb-24">
+    <AdFilters ads={adsData} lang={lang} client:load />
+  </Container>
+</Layout>
