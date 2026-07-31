@@ -44,8 +44,8 @@ if (isAr) {
 
 const { geo, twitterHandle, facebookAppId, keywords, author, googleSiteVerification, facebookDomainVerification } = {
   ...config.seo,
-  googleSiteVerification: config.marketing.googleSiteVerification,
-  facebookDomainVerification: config.marketing.facebookDomainVerification,
+  googleSiteVerification: config.marketing?.googleSiteVerification,
+  facebookDomainVerification: config.marketing?.facebookDomainVerification,
 };
 ---
 

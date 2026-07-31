@@ -7,8 +7,8 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "astro dev",
-    "start": "astro dev",
+    "dev": "cross-env ADAPTER=node astro dev",
+    "start": "cross-env ADAPTER=node astro dev",
     "build": "astro build",
     "build:vercel": "cross-env ADAPTER=vercel astro build",
     "build:netlify": "cross-env ADAPTER=netlify astro build",
